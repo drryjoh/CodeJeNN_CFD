@@ -15,7 +15,7 @@ forAll(Y,i)
 
 volScalarField tmpT = log(T/TUnit);
 
-if(differentialDiffusion)
+if(differentialDiffusion && !useDiffNN)
 {
 	forAll(groupSpecies,i)
 	{
@@ -64,7 +64,7 @@ forAll(groupSpecies,i)
 
 forAll(Y,i)
 {
-	if(differentialDiffusion)
+	if(differentialDiffusion && !useDiffNN)
 	{
 		DiNumerator *= 0;
 		DiDenominator *= 0;
@@ -134,6 +134,11 @@ if(thermalDiffusion)
 	}
 }
 
+
+// When using the NN, populate DiffNN from the network.
+// Otherwise activeDiff already references Diff — nothing to do.
+if (useDiffNN)
+    nnDiffInterface.compute(DiffNN, Y, p, T);
 
 if(differentialDiffusion)
 {

@@ -87,6 +87,29 @@ forAll(Y,i)
 	);
 }
 
+// NN diffusion coefficients — populated each time step by NNDiffInterface
+PtrList<volScalarField> DiffNN(Y.size());
+forAll(Y, i)
+{
+    word name("DiffNN" + Y[i].name());
+    DiffNN.set
+    (
+        i, new volScalarField
+        (
+            IOobject
+            (
+                name,
+                runTime.timeName(),
+                mesh,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            mesh,
+            dimensionedScalar(name, dimensionSet(0,2,-1,0,0,0,0), 0)
+        )
+    );
+}
+
 PtrList<volScalarField> d(0.5*Y.size()*(Y.size()+1));
 forAll(d,i)
 {

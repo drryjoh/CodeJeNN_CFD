@@ -18,7 +18,7 @@ forAll(Y,i)
 {
 	volScalarField& Yi = Y[i];
 	volScalarField& Xi = X[i];
-	volScalarField& Diffi = Diff[i];
+	volScalarField& Diffi = activeDiff[i];
 	DiffError += (rho*Diffi*fvc::grad(Yi) + Yi*rho*Diffi*fvc::grad(MW)/MW);
 	if(thermalDiffusion)
 	{
@@ -44,7 +44,7 @@ for(label i=0; i < Y.size(); i++)
 	{
 		volScalarField& Yi = Y[i];
 		volScalarField& Xi = X[i];
-		volScalarField& Diffi = Diff[i];
+		volScalarField& Diffi = activeDiff[i];
 		volScalarField  ThermalDiffRatio = TDRatio_H*0;
 		
 		if(thermalDiffusion)
@@ -86,7 +86,7 @@ for(label i=0; i < Y.size(); i++)
 			}
 		}
 		
-		surfaceScalarField speicesFlux = fvc::interpolate(rho*Diffi*fvc::grad(Yi)+Yi*rho*Diffi*fvc::grad(MW)/MW+(-rho*Diff[i]*ThermalDiffRatio*fvc::grad(T)*Yi/(T*(Xi+SMALL)))-Yi*DiffError)& mesh.Sf();
+		surfaceScalarField speicesFlux = fvc::interpolate(rho*Diffi*fvc::grad(Yi)+Yi*rho*Diffi*fvc::grad(MW)/MW+(-rho*Diffi*ThermalDiffRatio*fvc::grad(T)*Yi/(T*(Xi+SMALL)))-Yi*DiffError)& mesh.Sf();
 		vk += fvc::interpolate(Hsi)*speicesFlux;
 		sumOfOtherSpeices += speicesFlux;
 		diffsh += fvc::laplacian(mixAlpha*HEi, Yi);

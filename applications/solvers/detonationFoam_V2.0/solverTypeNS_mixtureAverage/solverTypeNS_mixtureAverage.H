@@ -10,6 +10,16 @@
 #include "readSpeciesLambda.H"
 #include "readSpeciesMu.H"
 
+#include "nn_diffusion_interface.H"
+NNDiffInterface nnDiffInterface(mesh);
+if (useDiffNN)
+    nnDiffInterface.check_species_list(Y);
+
+// Reference to whichever diffusion list rhoYEqn should consume.
+// Points to DiffNN when the NN is active, Diff otherwise.
+// No data is ever copied — rhoYEqn always reads through this alias.
+PtrList<volScalarField>& activeDiff = useDiffNN ? DiffNN : Diff;
+
 while (runTime.run())
 {
 #include "updateTransProperties.H"
