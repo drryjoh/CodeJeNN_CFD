@@ -1,0 +1,68 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     |                                                 |
+|   \\  /    A nd           |                                                 |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      generateDataProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Number of random (T, Y) samples to generate.
+// This is the only entry that needs to change between runs.
+nSamples        200;
+
+// Output CSV file written to the case directory.
+outputFile      "mu_training_data.csv";
+
+// Species list — must match the order used in the Mu NN.
+species ( H2 O2 N2 );
+
+// Per-species data:
+//   W    molecular weight [g/mol]
+//   Mu1-4  log-polynomial coefficients for dynamic viscosity
+//
+// Viscosity model (matches updateTransProperties.H):
+//   mu_i [Pa·s] = 0.1 * exp( Mu1 + ln(T)*(Mu2 + ln(T)*(Mu3 + ln(T)*Mu4)) )
+//
+// Coefficients are fitted to kinetic-theory values over 200–3000 K.
+// Reference viscosities at 300 K:
+//   H2  ~  8.9e-6 Pa·s
+//   O2  ~ 20.4e-6 Pa·s
+//   N2  ~ 17.8e-6 Pa·s
+
+H2
+{
+    W       2.016;
+    Mu1    -13.15;
+    Mu2      0.67;
+    Mu3      0.0;
+    Mu4      0.0;
+}
+
+O2
+{
+    W       31.998;
+    Mu1    -12.43;
+    Mu2      0.69;
+    Mu3      0.0;
+    Mu4      0.0;
+}
+
+N2
+{
+    W       28.014;
+    Mu1    -12.57;
+    Mu2      0.69;
+    Mu3      0.0;
+    Mu4      0.0;
+}
+
+// ************************************************************************* //
