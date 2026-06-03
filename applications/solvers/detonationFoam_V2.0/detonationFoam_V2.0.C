@@ -42,6 +42,11 @@ Description
 #include "fvcSmooth.H"
 #include "fluxScheme.H"
 
+// NN interfaces must be at file scope — template declarations and free
+// function definitions are not permitted inside a local class (main()).
+#include "nn_diffusion_interface.H"
+#include "nn_mu_interface.H"
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 int main(int argc, char *argv[])

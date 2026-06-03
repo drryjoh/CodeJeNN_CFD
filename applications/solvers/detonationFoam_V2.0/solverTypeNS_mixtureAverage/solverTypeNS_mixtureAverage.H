@@ -10,7 +10,6 @@
 #include "readSpeciesLambda.H"
 #include "readSpeciesMu.H"
 
-#include "nn_diffusion_interface.H"
 NNDiffInterface nnDiffInterface(mesh);
 if (useDiffNN)
     nnDiffInterface.check_species_list(Y);
@@ -20,7 +19,6 @@ if (useDiffNN)
 // No data is ever copied — rhoYEqn always reads through this alias.
 PtrList<volScalarField>& activeDiff = useDiffNN ? DiffNN : Diff;
 
-#include "nn_mu_interface.H"
 NNMuInterface nnMuInterface(mesh);
 if (useMuNN)
     nnMuInterface.check_species_list(Y);
