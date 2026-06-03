@@ -1,0 +1,57 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     |                                                 |
+|   \\  /    A nd           |                                                 |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      generateDataProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Number of random (T, Y) samples to validate against.
+nSamples        200;
+
+outputFile      "nn_check_results.csv";
+
+// Species list — must match the order in codeJeNN_mu.H (n_species_mu).
+species ( H2 O2 N2 );
+
+// Per-species polynomial data for the reference (polynomial) mu.
+// Must match what the NN was trained against.
+//   mu_i [Pa·s] = 0.1 * exp( Mu1 + ln(T)*(Mu2 + ln(T)*(Mu3 + ln(T)*Mu4)) )
+
+H2
+{
+    W       2.016;
+    Mu1    -13.15;
+    Mu2      0.67;
+    Mu3      0.0;
+    Mu4      0.0;
+}
+
+O2
+{
+    W       31.998;
+    Mu1    -12.43;
+    Mu2      0.69;
+    Mu3      0.0;
+    Mu4      0.0;
+}
+
+N2
+{
+    W       28.014;
+    Mu1    -12.57;
+    Mu2      0.69;
+    Mu3      0.0;
+    Mu4      0.0;
+}
+
+// ************************************************************************* //

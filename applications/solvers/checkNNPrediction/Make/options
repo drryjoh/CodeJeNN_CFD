@@ -1,0 +1,7 @@
+EXE_INC = \
+    -I$(LIB_SRC)/OpenFOAM/lnInclude \
+    -I$(LIB_SRC)/OSspecific/POSIX/lnInclude \
+    -I../detonationFoam_V2.0/solverTypeNS_mixtureAverage/transport
+
+EXE_LIBS = \
+    -lOpenFOAM
