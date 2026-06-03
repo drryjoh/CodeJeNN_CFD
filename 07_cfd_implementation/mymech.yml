@@ -1,0 +1,93 @@
+description: |-
+  CUI
+
+  JENRE® SOFTWARE
+
+  DISTRIBUTION STATEMENT F. Further dissemination only as directed by the
+  Commanding Officer, Naval Research Laboratory, 4555 Overlook Ave SW,
+  Washington DC, 20375-5320, October 15, 2025, or higher DoD authority.
+
+  See UserAgreement.txt for further information regarding acceptable uses of
+  this source code.
+
+  Hydrogen+Air mechanism extracted by Ryan Johnson, ryan.johnson@nrl.navy.mil, from GRI-Mech III
+
+  Source:
+  https://github.com/Cantera/cantera/blob/main/data/gri30.yaml
+
+  This is open data under license: https://github.com/Cantera/cantera/blob/main/License.txt
+
+  Reference: Gregory P. Smith, David M. Golden, Michael Frenklach, Nigel W. Moriarty, Boris Eiteneer, Mikhail Goldenberg, C. Thomas Bowman, Ronald K. Hanson, Soonho Song, William C. Gardiner, Jr., Vitali V. Lissianski, and Zhiwei Qin http://www.me.berkeley.edu/gri_mech/
+
+generator: cti2yaml
+cantera-version: 2.6.0b2
+date: Sat, 07 May 2022 13:51:40 -0400
+input-files: [h2mech.cti]
+
+units: {length: cm, quantity: mol, activation-energy: cal/mol}
+
+phases:
+- name: ''
+  thermo: ideal-gas
+  elements: [H, O, N]
+  species: [H2, O2, N2]
+  # kinetics: gas
+  # reactions: all
+  transport: mixture-averaged
+  state:
+    T: 1.0e-03
+    P: 4.124482657697879e-03
+
+species:
+- name: H2
+  composition: {H: 2}
+  thermo:
+    model: NASA7
+    temperature-ranges: [200.0, 1000.0, 3500.0]
+    data:
+    - [2.34433112, 7.98052075e-03, -1.9478151e-05, 2.01572094e-08, -7.37611761e-12,
+      -917.935173, 0.683010238]
+    - [3.3372792, -4.94024731e-05, 4.99456778e-07, -1.79566394e-10, 2.00255376e-14,
+      -950.158922, -3.20502331]
+  transport:
+    model: gas
+    geometry: linear
+    diameter: 2.9200000000000004
+    well-depth: 38.0
+    polarizability: 0.7900000000000001
+    rotational-relaxation: 280.0
+- name: O2
+  composition: {O: 2}
+  thermo:
+    model: NASA7
+    temperature-ranges: [200.0, 1000.0, 3500.0]
+    data:
+    - [3.78245636, -2.99673416e-03, 9.84730201e-06, -9.68129509e-09, 3.24372837e-12,
+      -1063.94356, 3.65767573]
+    - [3.28253784, 1.48308754e-03, -7.57966669e-07, 2.09470555e-10, -2.16717794e-14,
+      -1088.45772, 5.45323129]
+  transport:
+    model: gas
+    geometry: linear
+    diameter: 3.46
+    well-depth: 107.4
+    polarizability: 1.6
+    rotational-relaxation: 3.8
+- name: N2
+  composition: {N: 2}
+  thermo:
+    model: NASA7
+    temperature-ranges: [300.0, 1000.0, 5000.0]
+    data:
+    - [3.298677, 1.4082404e-03, -3.963222e-06, 5.641515e-09, -2.444854e-12,
+      -1020.8999, 3.950372]
+    - [2.92664, 1.4879768e-03, -5.68476e-07, 1.0097038e-10, -6.753351e-15,
+      -922.7977, 5.980528]
+  transport:
+    model: gas
+    geometry: linear
+    diameter: 3.6200000000000006
+    well-depth: 97.53
+    polarizability: 1.76
+    rotational-relaxation: 4.0
+

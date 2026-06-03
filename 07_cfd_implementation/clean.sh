@@ -1,0 +1,1 @@
+rm -rf *.h5 *.keras *.pkl __pycache__ ./data/ ./model/ *.hpp
