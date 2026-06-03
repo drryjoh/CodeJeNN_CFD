@@ -50,15 +50,21 @@ forAll(groupSpecies,i)
 	if(groupSpecies[i][0] != -1)
 	{
 		Lambda[groupSpecies[i][0]] = lambdaUnit*1e-5*exp(Lambda1[groupSpecies[i][0]] + tmpT*(Lambda2[groupSpecies[i][0]]+ tmpT*(Lambda3[groupSpecies[i][0]]+tmpT*Lambda4[groupSpecies[i][0]])));
-		Mu[groupSpecies[i][0]] = 0.1*MuUnit*exp(Mu1[groupSpecies[i][0]] + tmpT*(Mu2[groupSpecies[i][0]]+tmpT*(Mu3[groupSpecies[i][0]]+tmpT*Mu4[groupSpecies[i][0]])));		
 		forAll(groupSpecies[i],j)
 		{
 			if(j > 0)
-			{
 				Lambda[groupSpecies[i][j]] = Lambda[groupSpecies[i][0]];
-				Mu[groupSpecies[i][j]] = Mu[groupSpecies[i][0]];
+		}
+
+		if(!useMuNN)
+		{
+			Mu[groupSpecies[i][0]] = 0.1*MuUnit*exp(Mu1[groupSpecies[i][0]] + tmpT*(Mu2[groupSpecies[i][0]]+tmpT*(Mu3[groupSpecies[i][0]]+tmpT*Mu4[groupSpecies[i][0]])));
+			forAll(groupSpecies[i],j)
+			{
+				if(j > 0)
+					Mu[groupSpecies[i][j]] = Mu[groupSpecies[i][0]];
 			}
-		}		
+		}
 	}
 }
 
@@ -85,15 +91,18 @@ forAll(Y,i)
 	}
 }
 	
+if (useMuNN)
+    nnMuInterface.compute(MuNN, Y, T);
+
 forAll(Y,i)
 {
      volScalarField& Xi = X[i];
-     volScalarField& Mui = Mu[i];
+     volScalarField& Mui = activeMu[i];
      yhi *= 0;
      forAll (Y,z)
 	 {
 		volScalarField& Xz = X[z];
-		volScalarField& Muz = Mu[z];
+		volScalarField& Muz = activeMu[z];
 		yhi += Xz*0.353553*pow(1.0+Foam::sqrt(Mui/Muz)*pow025(composition.Wi(z)/composition.Wi(i)),2)/Foam::sqrt(1.0+composition.Wi(i)/composition.Wi(z));
 	 }
      mixMu += (Xi)*Mui/yhi;

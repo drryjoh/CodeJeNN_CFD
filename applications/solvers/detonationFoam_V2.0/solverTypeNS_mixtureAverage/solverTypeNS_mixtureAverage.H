@@ -20,6 +20,15 @@ if (useDiffNN)
 // No data is ever copied — rhoYEqn always reads through this alias.
 PtrList<volScalarField>& activeDiff = useDiffNN ? DiffNN : Diff;
 
+#include "nn_mu_interface.H"
+NNMuInterface nnMuInterface(mesh);
+if (useMuNN)
+    nnMuInterface.check_species_list(Y);
+
+// Reference to whichever viscosity list the mixture rule should consume.
+// Points to MuNN when the NN is active, Mu otherwise.
+PtrList<volScalarField>& activeMu = useMuNN ? MuNN : Mu;
+
 while (runTime.run())
 {
 #include "updateTransProperties.H"

@@ -20,6 +20,29 @@ new volScalarField
 );
 }
 
+// NN per-species viscosity — populated each time step by NNMuInterface
+PtrList<volScalarField> MuNN;
+forAll(Y, i)
+{
+    word name("MuNN" + Y[i].name());
+    MuNN.append
+    (
+        new volScalarField
+        (
+            IOobject
+            (
+                name,
+                runTime.timeName(),
+                mesh,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            mesh,
+            dimensionedScalar(name, dimensionSet(1,-1,-1,0,0,0,0), 0)
+        )
+    );
+}
+
 //***********************viscosity*************************//
 
 List<dimensionedScalar> Mu1(Y.size());

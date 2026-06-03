@@ -47,6 +47,7 @@ odeCoeffs
 differentialDiffusion on;
 thermalDiffusion off;
 useDiffNN off;
+useMuNN   off;
 
 Prt  Prt [0 0 0 0 0] 0.7;
 Sct  Sct [0 0 0 0 0] 0.7;
