@@ -4,13 +4,14 @@
 // nn_mu_interface.H
 //
 // Interface between OpenFOAM and the CodeJeNN-generated
-// per-species viscosity NN (codeJeNN_mu.H).
+// mixture viscosity NN (codeJeNN_mu.H).
 //
-// Mirrors the NNDiffInterface pattern: constructor takes only
-// the mesh; call check_species_list(Y) separately when
-// useMuNN is true.  The mixture rule in updateTransProperties
-// is applied to activeMu (which aliases either Mu or MuNN),
-// so no changes to that logic are needed.
+// The NN outputs mu_mix directly (scalar per cell), so
+// compute() fills mixMu rather than a per-species PtrList.
+// The Wilke mixture rule in updateTransProperties is skipped
+// when useMuNN is true (guarded by !useMuNN there).
+//
+// Species requirement: n_species_mu = 3, order H2, O2, N2.
 // ============================================================
 
 struct NNMuInterface
@@ -28,11 +29,6 @@ struct NNMuInterface
         forAll(names, i)
             names[i] = species_name_mu_gen(i);
         return names;
-    }
-
-    static Foam::string species_name(const Foam::label specieI)
-    {
-        return species_name_mu_gen(specieI);
     }
 
     void check_species_list(const PtrList<volScalarField>& Y) const
@@ -61,14 +57,15 @@ struct NNMuInterface
         Info << "NNMuInterface: species check passed" << endl;
     }
 
-    // Populate MuNN[i] (Pa·s) for every cell and species
-    // using the NN given the current T and mass fractions Y.
+    // Fill mixMu (Pa·s) for every cell using the NN.
+    // Input order to predict_mu: [T, Y_H2, Y_O2, Y_N2]
+    // (species Y[0]=H2, Y[1]=O2, Y[2]=N2, matching codeJeNN_mu.H)
     void compute(
-        PtrList<volScalarField>& MuNN,
+        volScalarField& mixMu,
         const PtrList<volScalarField>& Y,
         const volScalarField& T) const
     {
-        std::array<scalar, n_species_mu + 1> nn_input;
+        std::array<scalar, 4> nn_input;
 
         forAll(T, celli)
         {
@@ -76,10 +73,7 @@ struct NNMuInterface
             for (label i = 0; i < n_species_mu; ++i)
                 nn_input[1 + i] = Y[i][celli];
 
-            const auto output = predict_mu(nn_input);
-
-            for (label i = 0; i < n_species_mu; ++i)
-                MuNN[i][celli] = Foam::max(output[i], scalar(SMALL));
+            mixMu[celli] = Foam::max(predict_mu(nn_input), scalar(SMALL));
         }
     }
 };

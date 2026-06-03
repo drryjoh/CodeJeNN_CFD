@@ -92,22 +92,33 @@ forAll(Y,i)
 }
 	
 if (useMuNN)
-    nnMuInterface.compute(MuNN, Y, T);
-
-forAll(Y,i)
 {
-     volScalarField& Xi = X[i];
-     volScalarField& Mui = activeMu[i];
-     yhi *= 0;
-     forAll (Y,z)
-	 {
-		volScalarField& Xz = X[z];
-		volScalarField& Muz = activeMu[z];
-		yhi += Xz*0.353553*pow(1.0+Foam::sqrt(Mui/Muz)*pow025(composition.Wi(z)/composition.Wi(i)),2)/Foam::sqrt(1.0+composition.Wi(i)/composition.Wi(z));
-	 }
-     mixMu += (Xi)*Mui/yhi;
-	 mixLambdaA += Xi*Lambda[i];
-     mixLambdaB += Xi/Lambda[i];
+    // NN outputs mu_mix directly — skip Wilke rule
+    nnMuInterface.compute(mixMu, Y, T);
+    forAll(Y,i)
+    {
+        volScalarField& Xi = X[i];
+        mixLambdaA += Xi*Lambda[i];
+        mixLambdaB += Xi/Lambda[i];
+    }
+}
+else
+{
+    forAll(Y,i)
+    {
+         volScalarField& Xi = X[i];
+         volScalarField& Mui = Mu[i];
+         yhi *= 0;
+         forAll (Y,z)
+         {
+            volScalarField& Xz = X[z];
+            volScalarField& Muz = Mu[z];
+            yhi += Xz*0.353553*pow(1.0+Foam::sqrt(Mui/Muz)*pow025(composition.Wi(z)/composition.Wi(i)),2)/Foam::sqrt(1.0+composition.Wi(i)/composition.Wi(z));
+         }
+         mixMu += (Xi)*Mui/yhi;
+         mixLambdaA += Xi*Lambda[i];
+         mixLambdaB += Xi/Lambda[i];
+    }
 }
 
 mixAlpha = 0.5*(mixLambdaA+(1/mixLambdaB))/thermo.Cp();

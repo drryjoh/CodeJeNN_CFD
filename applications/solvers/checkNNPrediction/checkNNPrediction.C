@@ -173,20 +173,15 @@ int main(int argc, char *argv[])
 
         const scalar muPoly = wilkeMix(MuPoly, X, W);
 
-        // -- NN per-species Mu [Pa·s] ------------------------------
-        //    predict_mu input: [T, Y_0, Y_1, ..., Y_{n-1}]
-        std::array<scalar, n_species_mu + 1> nn_input;
+        // -- NN mixture viscosity [Pa·s] ---------------------------
+        //    predict_mu input: [T, Y_H2, Y_O2, Y_N2]
+        //    (species order must match codeJeNN_mu.H: H2=0, O2=1, N2=2)
+        std::array<scalar, 4> nn_input;
         nn_input[0] = T;
         for (int i = 0; i < n_species_mu; ++i)
             nn_input[1 + i] = Y[i];
 
-        const auto nn_out = predict_mu(nn_input);
-
-        List<scalar> MuNN(nSp);
-        for (int i = 0; i < nSp; ++i)
-            MuNN[i] = std::max(nn_out[i], scalar(1e-30));
-
-        const scalar muNN = wilkeMix(MuNN, X, W);
+        const scalar muNN = std::max(predict_mu(nn_input), scalar(1e-30));
 
         // -- Relative error ----------------------------------------
         const scalar relErr = std::abs(muPoly - muNN) / muPoly;

@@ -23,10 +23,6 @@ NNMuInterface nnMuInterface(mesh);
 if (useMuNN)
     nnMuInterface.check_species_list(Y);
 
-// Reference to whichever viscosity list the mixture rule should consume.
-// Points to MuNN when the NN is active, Mu otherwise.
-PtrList<volScalarField>& activeMu = useMuNN ? MuNN : Mu;
-
 while (runTime.run())
 {
 #include "updateTransProperties.H"
