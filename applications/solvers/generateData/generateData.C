@@ -30,7 +30,6 @@ using namespace Foam;
 int main(int argc, char *argv[])
 {
     argList::noParallel();
-    argList::noFunctionObjects();
 
     #include "setRootCaseLists.H"
     #include "createTime.H"
