@@ -99,6 +99,6 @@ inline auto model_1x4(const std::array<Scalar, 4>& initial_input) {
 /*\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//*/ 
 
 
-    return model_output;
+    return layer_2_output[0] * output_scale[0] + output_shift[0];
 
 }

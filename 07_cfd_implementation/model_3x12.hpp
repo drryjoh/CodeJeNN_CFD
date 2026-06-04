@@ -121,6 +121,6 @@ inline auto model_3x12(const std::array<Scalar, 4>& initial_input) {
 /*\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//*/ 
 
 
-    return model_output;
+    return layer_4_output[0] * output_scale[0] + output_shift[0];
 
 }

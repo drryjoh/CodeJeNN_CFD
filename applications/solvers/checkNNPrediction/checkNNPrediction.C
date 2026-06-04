@@ -1,31 +1,32 @@
 /*---------------------------------------------------------------------------*\
   checkNNPrediction.C
 
-  Validates the CodeJeNN viscosity NN against the polynomial Wilke model.
+  Validates three CodeJeNN viscosity NNs (1x4, 2x8, 3x12) against the
+  polynomial Wilke model.
 
   For each of nSamples random states (T, Y):
     1. Draw Y_i ~ Uniform(0,1), normalise so sum(Y_i) = 1.
     2. Draw T    ~ Uniform(200, 3000) K.
-    3. Compute polynomial per-species Mu_i, apply Wilke rule → mu_poly.
-    4. Call predict_mu() → NN per-species MuNN_i, apply same Wilke rule → mu_nn.
-    5. Relative error = |mu_poly - mu_nn| / mu_poly.
-    6. Write one CSV line: i, Y_0,...,Y_{n-1}, T, mu, muNN, rel_error
+    3. Compute polynomial per-species Mu_i, apply Wilke rule → mu_wilke.
+    4. Call each NN model → mu_NN1, mu_NN2, mu_NN3.
+    5. Relative error = |mu_wilke - mu_NNk| / mu_wilke.
+    6. Write CSV: j, Y_H2, Y_O2, Y_N2, T, mu_wilke, mu_NN1, mu_NN2, mu_NN3,
+                  e1, e2, e3
 
-  Relative error is chosen because viscosity spans ~3x over the temperature
-  range; an absolute metric would be biased toward high-T samples.
+  NN input order: [Y_H2, Y_O2, Y_N2, T]  (matches training normalization)
 
-  A summary (mean and max relative error) is printed to stdout on completion.
-
-  Reads from:  constant/generateDataProperties  (same format as generateData)
+  Reads from:  constant/generateDataProperties
   Writes to:   outputFile (default: nn_check_results.csv)
 
   Usage:
       checkNNPrediction
 \*---------------------------------------------------------------------------*/
 
-// NN must be included at file scope — template declarations are not
-// permitted inside a local class (i.e. inside main()).
-#include "codeJeNN_mu.H"
+// NN model headers — included at file scope; template declarations are not
+// permitted inside a local scope such as main().
+#include "model_1x4.hpp"
+#include "model_2x8.hpp"
+#include "model_3x12.hpp"
 
 #include "argList.H"
 #include "Time.H"
@@ -38,8 +39,7 @@
 
 using namespace Foam;
 
-// Helper: apply the Wilke mixture rule to per-species Mu and mole fractions X.
-// Matches the formula in updateTransProperties.H exactly.
+// Wilke mixture viscosity rule.
 static scalar wilkeMix
 (
     const List<scalar>& Mu,
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
     #include "createTime.H"
 
     // ----------------------------------------------------------------
-    // Read configuration (same dict format as generateData)
+    // Read configuration
     // ----------------------------------------------------------------
     IOdictionary props
     (
@@ -100,28 +100,17 @@ int main(int argc, char *argv[])
     const wordList speciesNames(props.lookup("species"));
     const int nSp = speciesNames.size();
 
-    // Validate species count matches the NN at compile time
-    if (nSp != n_species_mu)
-    {
-        FatalErrorInFunction
-            << "Species count mismatch: properties file has " << nSp
-            << " species, but codeJeNN_mu.H defines n_species_mu = "
-            << n_species_mu << ".\n"
-            << "Update codeJeNN_mu.H or the species list to match."
-            << exit(FatalError);
-    }
-
     List<scalar> W(nSp);
     List<scalar> mu1(nSp), mu2(nSp), mu3(nSp), mu4(nSp);
 
     forAll(speciesNames, i)
     {
         const dictionary& sd = props.subDict(speciesNames[i]);
-        W[i]    = readScalar(sd.lookup("W"));
-        mu1[i]  = readScalar(sd.lookup("Mu1"));
-        mu2[i]  = readScalar(sd.lookup("Mu2"));
-        mu3[i]  = readScalar(sd.lookup("Mu3"));
-        mu4[i]  = readScalar(sd.lookup("Mu4"));
+        W[i]   = readScalar(sd.lookup("W"));
+        mu1[i] = readScalar(sd.lookup("Mu1"));
+        mu2[i] = readScalar(sd.lookup("Mu2"));
+        mu3[i] = readScalar(sd.lookup("Mu3"));
+        mu4[i] = readScalar(sd.lookup("Mu4"));
     }
 
     Info << "Checking NN predictions for " << nSamples << " samples"
@@ -135,15 +124,10 @@ int main(int argc, char *argv[])
 
     std::ofstream out(outputFile);
 
-    // Header
-    out << "i";
-    forAll(speciesNames, i)
-        out << "," << speciesNames[i];
-    out << ",T,mu,muNN,rel_error\n";
+    out << "j,Y_H2,Y_O2,Y_N2,T,mu_wilke,mu_NN1,mu_NN2,mu_NN3,e1,e2,e3\n";
 
-    // Running statistics
-    scalar sumRelErr = 0;
-    scalar maxRelErr = 0;
+    scalar sumErr1 = 0, sumErr2 = 0, sumErr3 = 0;
+    scalar maxErr1 = 0, maxErr2 = 0, maxErr3 = 0;
 
     for (label j = 0; j < nSamples; ++j)
     {
@@ -171,42 +155,44 @@ int main(int argc, char *argv[])
             MuPoly[i] = 0.1 * std::exp(
                 mu1[i] + logT*(mu2[i] + logT*(mu3[i] + logT*mu4[i])));
 
-        const scalar muPoly = wilkeMix(MuPoly, X, W);
+        const scalar muWilke = wilkeMix(MuPoly, X, W);
 
-        // -- NN mixture viscosity [Pa·s] ---------------------------
-        //    predict_mu input: [T, Y_H2, Y_O2, Y_N2]
-        //    (species order must match codeJeNN_mu.H: H2=0, O2=1, N2=2)
-        std::array<scalar, 4> nn_input;
-        nn_input[0] = T;
-        for (int i = 0; i < n_species_mu; ++i)
-            nn_input[1 + i] = Y[i];
+        // -- NN predictions [Pa·s] ---------------------------------
+        //    Input order: [Y_H2, Y_O2, Y_N2, T]
+        std::array<scalar, 4> nn_input = { Y[0], Y[1], Y[2], T };
 
-        const scalar muNN = std::max(predict_mu(nn_input), scalar(1e-30));
+        const scalar muNN1 = std::max(model_1x4(nn_input), scalar(1e-30));
+        const scalar muNN2 = std::max(model_2x8(nn_input), scalar(1e-30));
+        const scalar muNN3 = std::max(model_3x12(nn_input), scalar(1e-30));
 
-        // -- Relative error ----------------------------------------
-        const scalar relErr = std::abs(muPoly - muNN) / muPoly;
+        // -- Relative errors ---------------------------------------
+        const scalar e1 = std::abs(muWilke - muNN1) / muWilke;
+        const scalar e2 = std::abs(muWilke - muNN2) / muWilke;
+        const scalar e3 = std::abs(muWilke - muNN3) / muWilke;
 
-        sumRelErr += relErr;
-        maxRelErr  = std::max(maxRelErr, relErr);
+        sumErr1 += e1;  maxErr1 = std::max(maxErr1, e1);
+        sumErr2 += e2;  maxErr2 = std::max(maxErr2, e2);
+        sumErr3 += e3;  maxErr3 = std::max(maxErr3, e3);
 
         // -- Write -------------------------------------------------
-        out << j;
-        for (int i = 0; i < nSp; ++i)
-            out << "," << Y[i];
-        out << "," << T
-            << "," << muPoly
-            << "," << muNN
-            << "," << relErr
+        out << j
+            << "," << Y[0] << "," << Y[1] << "," << Y[2]
+            << "," << T
+            << "," << muWilke
+            << "," << muNN1 << "," << muNN2 << "," << muNN3
+            << "," << e1 << "," << e2 << "," << e3
             << "\n";
     }
 
     out.close();
 
-    const scalar meanRelErr = sumRelErr / nSamples;
-
     Info << "Results written to '" << outputFile << "'" << nl
-         << "  Mean relative error : " << meanRelErr * 100 << " %" << nl
-         << "  Max  relative error : " << maxRelErr  * 100 << " %" << endl;
+         << "  NN1 (1x4)  | mean: " << sumErr1/nSamples*100 << " %"
+                      << "  max: " << maxErr1*100 << " %" << nl
+         << "  NN2 (2x8)  | mean: " << sumErr2/nSamples*100 << " %"
+                      << "  max: " << maxErr2*100 << " %" << nl
+         << "  NN3 (3x12) | mean: " << sumErr3/nSamples*100 << " %"
+                      << "  max: " << maxErr3*100 << " %" << endl;
 
     return 0;
 }
