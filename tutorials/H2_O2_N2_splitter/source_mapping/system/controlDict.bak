@@ -1,0 +1,107 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     |                                                 |
+|   \\  /    A nd           |                                                 |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+libs
+(
+    "libdynamicMesh2D.so"
+    "libdynamicFvMesh2D.so"
+    "libchemistryModel_DLB.so"
+    "libODE_DLB.so"
+);
+
+application     detonationFoam_V2.0;
+
+startFrom       startTime;
+startTime       0;
+
+stopAt          endTime;
+endTime         100e-7;      // 100 us (~13 domain flow-through times)
+
+deltaT          1e-8;        // initial dt; CFL-adjusted each step
+
+writeControl    adjustableRunTime;
+writeInterval   10e-7;       // write every 10 us
+
+purgeWrite      0;
+
+writeFormat     ascii;
+writePrecision  12;
+writeCompression off;
+
+timeFormat      general;
+timePrecision   12;
+
+runTimeModifiable true;
+
+adjustTimeStep  yes;
+useAcousticCourant yes;
+
+maxCo           0.3;
+maxDeltaT       1e-6;
+maxAcousticCo   0.3;
+
+functions
+{
+    lineSamples
+    {
+        type            sets;
+        libs            ("libsampling.so");
+
+        writeControl    timeStep;
+        writeInterval   1;
+
+        interpolationScheme cellPoint;
+
+        setFormat       raw;
+
+        fields
+        (
+            U
+            p
+            T
+            H2
+            O2
+            N2
+        );
+
+        sets
+        (
+            centerline
+            {
+                type    uniform;
+                axis    distance;
+
+                start   (0      0.0025 0);
+                end     (0.015  0.0025 0);
+
+                nPoints 500;
+            }
+
+            vertical_x5mm
+            {
+                type    uniform;
+                axis    y;
+
+                start   (0.005 0     0);
+                end     (0.005 0.005 0);
+
+                nPoints 300;
+            }
+        );
+    }
+}
+// ************************************************************************* //

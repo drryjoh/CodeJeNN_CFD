@@ -16,7 +16,7 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 // Number of random (T, Y) samples to validate against.
-nSamples        200;
+nSamples        2000;
 
 outputFile      "nn_check_results.csv";
 

@@ -14,9 +14,13 @@ FoamFile
     object      decomposeParDict;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+numberOfSubdomains 128;
 
-numberOfSubdomains  4;
+method          simple;
 
-method          scotch;
-
+simpleCoeffs
+{
+    n           (64 2 1);
+    delta       0.001;
+}
 // ************************************************************************* //
