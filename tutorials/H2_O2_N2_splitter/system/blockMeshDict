@@ -23,13 +23,17 @@ FoamFile
 // Base cell size: ~200 um (x) x ~192 um (y, 13 cells per 2.5 mm block)
 // AMR will refine down to ~12.5 um (4 levels).
 //
-// Inlet conditions:
-//   Air  (y=2.5-5 mm left, top BC):  M=2.5, T=1500K, p=101325 Pa
+// Inlet conditions (left face, x=0):
+//   Air  (y=2.5-5 mm): M=2.5, T=1500K, p=101325 Pa
 //          c = sqrt(gamma*R_mix*T) = sqrt(1.310 * 288.2 * 1500) = 753 m/s
 //          U = 2.5 * 753 = 1882 m/s
-//   Fuel (y=0-2.5mm left, bottom BC): M=1.5, T=350K, p=101325 Pa
+//   Fuel (y=0-2.5 mm): M=1.5, T=350K, p=101325 Pa
 //          c = sqrt(gamma*R_H2*T)  = sqrt(1.402 * 4123 * 350) = 1422 m/s
 //          U = 1.5 * 1422 = 2133 m/s
+//
+// Outlet: right face (x=15 mm) + top (y=5 mm) + bottom (y=0 mm).
+// Top and bottom are open outflow boundaries so the mixing layer
+// can spread freely in y without being constrained by walls.
 
 convertToMeters 0.001;   // all coordinates in mm
 
