@@ -166,9 +166,9 @@ int main(int argc, char *argv[])
         std::array<scalar, 4> nn_input  = { Y[1], Y[2], Y[0], T   };
 
         const scalar muNN0 = std::max(scalar(predict_mu(nn0_input)), scalar(1e-30));
-        const scalar muNN1 = std::max(model_1x4(nn_input),           scalar(1e-30));
-        const scalar muNN2 = std::max(model_2x8(nn_input),           scalar(1e-30));
-        const scalar muNN3 = std::max(model_3x12(nn_input),          scalar(1e-30));
+        const scalar muNN1 = std::max(model_1x4(nn_input)[0],         scalar(1e-30));
+        const scalar muNN2 = std::max(model_2x8(nn_input)[0],         scalar(1e-30));
+        const scalar muNN3 = std::max(model_3x12(nn_input)[0],        scalar(1e-30));
 
         // -- Relative errors ---------------------------------------
         const scalar e0 = std::abs(muWilke - muNN0) / muWilke;
