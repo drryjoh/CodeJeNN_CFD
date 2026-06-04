@@ -159,10 +159,11 @@ int main(int argc, char *argv[])
         const scalar muWilke = wilkeMix(MuPoly, X, W);
 
         // -- NN predictions [Pa·s] ---------------------------------
-        //    NN0 input order: [T, Y_H2, Y_O2, Y_N2]
-        //    NN1/2/3 input order: [Y_H2, Y_O2, Y_N2, T]
-        std::array<scalar, 4> nn0_input = { T, Y[0], Y[1], Y[2] };
-        std::array<scalar, 4> nn_input  = { Y[0], Y[1], Y[2], T };
+        //    NN0 input order: [T, Y_H2, Y_O2, Y_N2]  (predict_mu wrapper)
+        //    NN1/2/3 input order: [Y_O2, Y_N2, Y_H2, T]  (train.py: df[['O2','N2','H2','T']])
+        //    Species list order (generateDataProperties): H2=Y[0], O2=Y[1], N2=Y[2]
+        std::array<scalar, 4> nn0_input = { T,    Y[0], Y[1], Y[2] };
+        std::array<scalar, 4> nn_input  = { Y[1], Y[2], Y[0], T   };
 
         const scalar muNN0 = std::max(scalar(predict_mu(nn0_input)), scalar(1e-30));
         const scalar muNN1 = std::max(model_1x4(nn_input),           scalar(1e-30));
