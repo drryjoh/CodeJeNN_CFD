@@ -58,14 +58,14 @@ inline auto model_1x4(const std::array<Scalar, 4>& initial_input) {
 /*\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//*/ 
 
 
-    auto tanhCustom = +[](Scalar& output, Scalar input, Scalar alpha) noexcept 
-    {
-        output = std::tanh(input);
-    };
-
     auto linear = +[](Scalar& output, Scalar input, Scalar alpha) noexcept 
     {
         output = input;
+    };
+
+    auto tanhCustom = +[](Scalar& output, Scalar input, Scalar alpha) noexcept 
+    {
+        output = std::tanh(input);
     };
 
 
@@ -99,6 +99,10 @@ inline auto model_1x4(const std::array<Scalar, 4>& initial_input) {
 /*\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//*/ 
 
 
-    return layer_2_output[0] * output_scale[0] + output_shift[0];
+    static std::array<Scalar, 1> model_output;
+
+    for (int i = 0; i < 1; i++) { model_output[i] = (layer_2_output[i] * output_scale[i]) + output_shift[i]; }
+
+    return model_output;
 
 }

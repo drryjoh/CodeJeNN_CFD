@@ -110,6 +110,10 @@ inline auto model_2x8(const std::array<Scalar, 4>& initial_input) {
 /*\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//\//*/ 
 
 
-    return layer_3_output[0] * output_scale[0] + output_shift[0];
+    static std::array<Scalar, 1> model_output;
+
+    for (int i = 0; i < 1; i++) { model_output[i] = (layer_3_output[i] * output_scale[i]) + output_shift[i]; }
+
+    return model_output;
 
 }

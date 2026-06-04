@@ -25,7 +25,7 @@ def main():
     LR = 1e-3
     EPOCHS = 500
     BS = 32
-    NEURONS = 12
+    NEURONS = 8
     BIT = np.float64
     FILE = "mu_training_data.csv"
     MODEL_DIR = "model"
@@ -69,7 +69,7 @@ def main():
 
         keras.layers.Dense(NEURONS, activation="tanh"),
         keras.layers.Dense(NEURONS, activation="tanh"),
-        keras.layers.Dense(NEURONS, activation="tanh"),
+        # keras.layers.Dense(NEURONS, activation="tanh"),
         keras.layers.Dense(OUTPUT_DIM, activation=None)
     ])
 
@@ -99,7 +99,7 @@ def main():
     # save model and scalers
     # https://stackoverflow.com/questions/54879434/how-to-use-pickle-to-save-sklearn-model
     os.mkdir(MODEL_DIR)
-    model.save(f"{MODEL_DIR}/model_3x12.keras")
+    model.save(f"{MODEL_DIR}/model_2x8.keras")
     np.save(f"{MODEL_DIR}/input_mean.npy", x_norm.mean_)
     np.save(f"{MODEL_DIR}/input_std.npy", x_norm.scale_)
     np.save(f"{MODEL_DIR}/output_mean.npy", y_norm.mean_)
