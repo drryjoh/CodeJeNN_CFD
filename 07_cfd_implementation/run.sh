@@ -1,11 +1,11 @@
 #!/bin/bash
-python3 viscosity.py
+# python3 viscosity.py
 python3 train.py
-python3 plotT.py
-python3 plotH2.py
+# python3 plotT.py
+# python3 plotH2.py
 rm -rf __pycache__
 python3 \
-    ../../src/api-core/main.py \
+    $HOME/code/codejenn/src/api-core/main.py \
     --input="./model/" \
     --output="." \
     --backend="tensorflow" \
