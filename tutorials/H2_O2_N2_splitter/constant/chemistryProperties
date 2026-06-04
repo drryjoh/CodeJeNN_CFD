@@ -49,6 +49,8 @@ differentialDiffusion   on;
 thermalDiffusion        off;
 useDiffNN               off;
 useMuNN                 off;
+muNNmodel               NN0;    // NN0, NN1, NN2, NN3 (only used when useMuNN on)
+computeMuNNerror        off;    // write mu_err field (relative error vs Wilke)
 
 Prt  Prt [0 0 0 0 0] 0.7;
 Sct  Sct [0 0 0 0 0] 0.7;
