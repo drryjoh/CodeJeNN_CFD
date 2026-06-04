@@ -20,8 +20,9 @@ FoamFile
 //   lower (y = 0..2.5 mm) : H2 stream
 //   upper (y = 2.5..5 mm) : Air stream
 //
-// Base cell size: ~200 um (x) x ~192 um (y, 13 cells per 2.5 mm block)
-// AMR will refine down to ~12.5 um (4 levels).
+// 190 x 60 x 1 cells per block.
+// x: graded ~20 um at inlet (x=0) → ~200 um at outlet (x=15 mm), R=10, r=1.0123.
+// y: graded ~10 um at centre (y=2.5 mm) → ~109 um at top/bottom, R=10.9, r=1.0413.
 //
 // Inlet conditions (left face, x=0):
 //   Air  (y=2.5-5 mm): M=2.5, T=1500K, p=101325 Pa
@@ -59,11 +60,15 @@ vertices
 blocks
 (
     // Lower block  (H2 stream, y = 0..2.5 mm)
-    //   75 x 13 x 1  =>  200 um x ~192 um x 200 um
-    hex (0 1 2 3 6 7 8 9)   (75 13 1)  simpleGrading (1 1 1)
+    //   190 x 60 x 1 cells.
+    //   x: 20 um at x=0 → 200 um at x=15 mm  (R=10, r=1.0123).
+    //   y: 109 um at y=0 → 10 um at y=2.5 mm  (R=1/10.9≈0.092, r=1.0413).
+    hex (0 1 2 3 6 7 8 9)   (190 60 1)  simpleGrading (10 0.0917 1)
 
     // Upper block  (Air stream, y = 2.5..5 mm)
-    hex (3 2 5 4 9 8 11 10) (75 13 1)  simpleGrading (1 1 1)
+    //   x: same grading as lower block.
+    //   y: 10 um at y=2.5 mm → 109 um at y=5 mm  (R=10.9, r=1.0413).
+    hex (3 2 5 4 9 8 11 10) (190 60 1)  simpleGrading (10 10.9 1)
 );
 
 edges

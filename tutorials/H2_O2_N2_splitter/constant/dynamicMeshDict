@@ -15,7 +15,7 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-dynamicFvMesh   dynamicRefineFvMesh2D;
+dynamicFvMesh   staticFvMesh;
 
 dynamicRefineFvMesh2DCoeffs
 {

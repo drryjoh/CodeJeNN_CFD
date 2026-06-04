@@ -29,12 +29,12 @@ startFrom       startTime;
 startTime       0;
 
 stopAt          endTime;
-endTime         100e-6;      // 100 us (~13 domain flow-through times)
+endTime         300e-7;      // 100 us (~13 domain flow-through times)
 
 deltaT          1e-8;        // initial dt; CFL-adjusted each step
 
 writeControl    adjustableRunTime;
-writeInterval   10e-6;       // write every 10 us
+writeInterval   10e-7;       // write every 10 us
 
 purgeWrite      0;
 
@@ -53,9 +53,5 @@ useAcousticCourant yes;
 maxCo           0.3;
 maxDeltaT       1e-6;
 maxAcousticCo   0.3;
-
-functions
-{
-}
 
 // ************************************************************************* //
