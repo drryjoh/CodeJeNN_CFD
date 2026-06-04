@@ -23,13 +23,17 @@ FoamFile
 // Base cell size: ~200 um (x) x ~192 um (y, 13 cells per 2.5 mm block)
 // AMR will refine down to ~12.5 um (4 levels).
 //
-// Inlet conditions:
-//   Air  (y=2.5-5 mm left, top BC):  M=2.5, T=1500K, p=101325 Pa
+// Inlet conditions (left face, x=0):
+//   Air  (y=2.5-5 mm): M=2.5, T=1500K, p=101325 Pa
 //          c = sqrt(gamma*R_mix*T) = sqrt(1.310 * 288.2 * 1500) = 753 m/s
 //          U = 2.5 * 753 = 1882 m/s
-//   Fuel (y=0-2.5mm left, bottom BC): M=1.5, T=350K, p=101325 Pa
+//   Fuel (y=0-2.5 mm): M=1.5, T=350K, p=101325 Pa
 //          c = sqrt(gamma*R_H2*T)  = sqrt(1.402 * 4123 * 350) = 1422 m/s
 //          U = 1.5 * 1422 = 2133 m/s
+//
+// Outlet: right face (x=15 mm) + top (y=5 mm) + bottom (y=0 mm).
+// Top and bottom are open outflow boundaries so the mixing layer
+// can spread freely in y without being constrained by walls.
 
 convertToMeters 0.001;   // all coordinates in mm
 
@@ -37,29 +41,29 @@ vertices
 (
     //  back plane (z = -0.1 mm)
     (  0    0    -0.1)   // v0
-    ( 15    0    -0.1)   // v1
-    ( 15    2.5  -0.1)   // v2
+    ( 10    0    -0.1)   // v1
+    ( 10    2.5  -0.1)   // v2
     (  0    2.5  -0.1)   // v3
     (  0    5    -0.1)   // v4
-    ( 15    5    -0.1)   // v5
+    ( 10    5    -0.1)   // v5
 
     //  front plane (z = +0.1 mm)
     (  0    0     0.1)   // v6
-    ( 15    0     0.1)   // v7
-    ( 15    2.5   0.1)   // v8
+    ( 10    0     0.1)   // v7
+    ( 10    2.5   0.1)   // v8
     (  0    2.5   0.1)   // v9
     (  0    5     0.1)   // v10
-    ( 15    5     0.1)   // v11
+    ( 10    5     0.1)   // v11
 );
 
 blocks
 (
     // Lower block  (H2 stream, y = 0..2.5 mm)
     //   75 x 13 x 1  =>  200 um x ~192 um x 200 um
-    hex (0 1 2 3 6 7 8 9)   (75 13 1)  simpleGrading (1 1 1)
+    hex (0 1 2 3 6 7 8 9)   (100 26 1)  simpleGrading (1 1 1)
 
     // Upper block  (Air stream, y = 2.5..5 mm)
-    hex (3 2 5 4 9 8 11 10) (75 13 1)  simpleGrading (1 1 1)
+    hex (3 2 5 4 9 8 11 10) (100 26 1)  simpleGrading (1 1 1)
 );
 
 edges

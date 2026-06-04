@@ -1,0 +1,52 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM                                      |
+|  \\    /   O peration     |                                                 |
+|   \\  /    A nd           |                                                 |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      topoSetDict;
+}
+
+actions
+(
+    {
+        name    refineCells1;
+        type    cellSet;
+        action  new;
+        source  boxToCell;
+
+        sourceInfo
+        {
+            box (-1e20 0.00200 -1e20) (1e20 0.00300 1e20);
+        }
+    }
+    {
+        name    refineCells2;
+        type    cellSet;
+        action  new;
+        source  boxToCell;
+
+        sourceInfo
+        {
+            box (-1e20 0.00225 -1e20) (1e20 0.00275 1e20);
+        }
+    }
+    {
+        name    refineCells3;
+        type    cellSet;
+        action  new;
+        source  boxToCell;
+
+        sourceInfo
+        {
+            box (-1e20 0.0024 -1e20) (1e20 0.0026 1e20);
+        }
+    }
+);

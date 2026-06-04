@@ -17,7 +17,7 @@ FoamFile
 
 // Number of random (T, Y) samples to generate.
 // This is the only entry that needs to change between runs.
-nSamples        200;
+nSamples        10000; //200
 
 // Output CSV file written to the case directory.
 outputFile      "mu_training_data.csv";
