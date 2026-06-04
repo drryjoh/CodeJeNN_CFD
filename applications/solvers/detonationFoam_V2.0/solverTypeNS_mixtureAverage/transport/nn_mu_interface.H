@@ -1,27 +1,50 @@
-#include "codeJeNN_mu.H"
+#include "codeJeNN_mu.H"   // NN0 — also provides n_species_mu, species_name_mu_gen
+#include "model_1x4.hpp"   // NN1
+#include "model_2x8.hpp"   // NN2
+#include "model_3x12.hpp"  // NN3
 
 // ============================================================
 // nn_mu_interface.H
 //
-// Interface between OpenFOAM and the CodeJeNN-generated
-// mixture viscosity NN (codeJeNN_mu.H).
+// Interface between OpenFOAM and the CodeJeNN viscosity NNs.
+// Four models are selectable via muNNmodel in chemistryProperties:
 //
-// The NN outputs mu_mix directly (scalar per cell), so
-// compute() fills mixMu rather than a per-species PtrList.
-// The Wilke mixture rule in updateTransProperties is skipped
-// when useMuNN is true (guarded by !useMuNN there).
+//   NN0 — codeJeNN_mu.H  (1x4, input [T, Y_H2, Y_O2, Y_N2])
+//   NN1 — model_1x4.hpp  (1x4, input [Y_O2, Y_N2, Y_H2, T])
+//   NN2 — model_2x8.hpp  (2x8, input [Y_O2, Y_N2, Y_H2, T])
+//   NN3 — model_3x12.hpp (3x12, input [Y_O2, Y_N2, Y_H2, T])
 //
-// Species requirement: n_species_mu = 3, order H2, O2, N2.
+// NN1/2/3 input order matches train.py: df[['O2','N2','H2','T']].
+//
+// Species requirement: n_species_mu = 3, solver order H2=0, O2=1, N2=2.
+// The Wilke mixture rule is skipped in updateTransProperties when useMuNN.
 // ============================================================
 
 struct NNMuInterface
 {
     const fvMesh& mesh_;
+    label modelIdx_;
 
-    NNMuInterface(const fvMesh& mesh)
+    NNMuInterface(const fvMesh& mesh, const word& modelName)
     :
-        mesh_(mesh)
-    {}
+        mesh_(mesh),
+        modelIdx_(nameToIdx(modelName))
+    {
+        Info << "NNMuInterface: active model = " << modelName << endl;
+    }
+
+    static label nameToIdx(const word& name)
+    {
+        if (name == "NN0") return 0;
+        if (name == "NN1") return 1;
+        if (name == "NN2") return 2;
+        if (name == "NN3") return 3;
+        FatalErrorInFunction
+            << "Unknown muNNmodel '" << name
+            << "'. Valid options: NN0, NN1, NN2, NN3."
+            << exit(FatalError);
+        return 0;
+    }
 
     static Foam::stringList species_names()
     {
@@ -57,23 +80,58 @@ struct NNMuInterface
         Info << "NNMuInterface: species check passed" << endl;
     }
 
-    // Fill mixMu (Pa·s) for every cell using the NN.
-    // Input order to predict_mu: [T, Y_H2, Y_O2, Y_N2]
-    // (species Y[0]=H2, Y[1]=O2, Y[2]=N2, matching codeJeNN_mu.H)
-    void compute(
+    // Predict viscosity [Pa·s] for a single cell.
+    // Solver species layout: Y[0]=H2, Y[1]=O2, Y[2]=N2.
+    // NN1/2/3 training order: [O2, N2, H2, T].
+    inline scalar predictCell
+    (
+        scalar T_c,
+        scalar Y_H2,
+        scalar Y_O2,
+        scalar Y_N2
+    ) const
+    {
+        std::array<scalar, 4> in;
+        switch (modelIdx_)
+        {
+            case 0:
+                in = {T_c, Y_H2, Y_O2, Y_N2};
+                return Foam::max(predict_mu(in), scalar(SMALL));
+
+            case 1:
+                in = {Y_O2, Y_N2, Y_H2, T_c};
+                return Foam::max(model_1x4(in)[0], scalar(SMALL));
+
+            case 2:
+                in = {Y_O2, Y_N2, Y_H2, T_c};
+                return Foam::max(model_2x8(in)[0], scalar(SMALL));
+
+            case 3:
+                in = {Y_O2, Y_N2, Y_H2, T_c};
+                return Foam::max(model_3x12(in)[0], scalar(SMALL));
+
+            default:
+                return scalar(SMALL);
+        }
+    }
+
+    // Fill mixMu [Pa·s] for every cell using the active NN.
+    void compute
+    (
         volScalarField& mixMu,
         const PtrList<volScalarField>& Y,
-        const volScalarField& T) const
+        const volScalarField& T
+    ) const
     {
-        std::array<scalar, 4> nn_input;
-
         forAll(T, celli)
         {
-            nn_input[0] = T[celli];
-            for (label i = 0; i < n_species_mu; ++i)
-                nn_input[1 + i] = Y[i][celli];
-
-            mixMu[celli] = Foam::max(predict_mu(nn_input), scalar(SMALL));
+            mixMu[celli] = predictCell
+            (
+                T[celli],
+                Y[0][celli],   // H2
+                Y[1][celli],   // O2
+                Y[2][celli]    // N2
+            );
         }
     }
 };

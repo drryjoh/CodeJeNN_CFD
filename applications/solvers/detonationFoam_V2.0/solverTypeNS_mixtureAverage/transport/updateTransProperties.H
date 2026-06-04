@@ -56,7 +56,7 @@ forAll(groupSpecies,i)
 				Lambda[groupSpecies[i][j]] = Lambda[groupSpecies[i][0]];
 		}
 
-		if(!useMuNN)
+		if(!useMuNN || computeMuNNerror)
 		{
 			Mu[groupSpecies[i][0]] = 0.1*MuUnit*exp(Mu1[groupSpecies[i][0]] + tmpT*(Mu2[groupSpecies[i][0]]+tmpT*(Mu3[groupSpecies[i][0]]+tmpT*Mu4[groupSpecies[i][0]])));
 			forAll(groupSpecies[i],j)
@@ -100,6 +100,34 @@ if (useMuNN)
         volScalarField& Xi = X[i];
         mixLambdaA += Xi*Lambda[i];
         mixLambdaB += Xi/Lambda[i];
+    }
+
+    if (computeMuNNerror)
+    {
+        // Compute Wilke reference per-cell (Mu[i] already filled above)
+        // and store relative error |mu_NN - mu_Wilke| / mu_Wilke in mu_err.
+        forAll(T, celli)
+        {
+            scalar muWilke_c = 0;
+            for (label i = 0; i < Y.size(); ++i)
+            {
+                scalar phi_sum = 0;
+                const scalar Wi = composition.Wi(i);
+                const scalar Mui_c = Mu[i][celli];
+                for (label z = 0; z < Y.size(); ++z)
+                {
+                    const scalar Wz = composition.Wi(z);
+                    const scalar Muz_c = Mu[z][celli];
+                    phi_sum += X[z][celli] * 0.353553
+                             * std::pow(1.0 + std::sqrt(Mui_c/Muz_c)
+                                            * std::pow(Wz/Wi, 0.25), 2.0)
+                             / std::sqrt(1.0 + Wi/Wz);
+                }
+                muWilke_c += X[i][celli] * Mui_c / phi_sum;
+            }
+            mu_err[celli] = mag(mixMu[celli] - muWilke_c)
+                          / max(muWilke_c, scalar(SMALL));
+        }
     }
 }
 else

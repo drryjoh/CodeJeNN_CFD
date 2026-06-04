@@ -19,7 +19,7 @@ if (useDiffNN)
 // No data is ever copied — rhoYEqn always reads through this alias.
 PtrList<volScalarField>& activeDiff = useDiffNN ? DiffNN : Diff;
 
-NNMuInterface nnMuInterface(mesh);
+NNMuInterface nnMuInterface(mesh, muNNmodel);
 if (useMuNN)
     nnMuInterface.check_species_list(Y);
 

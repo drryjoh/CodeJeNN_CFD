@@ -17,5 +17,7 @@ Switch differentialDiffusion(chemistryProperties.lookupOrDefault("differentialDi
 Switch thermalDiffusion(chemistryProperties.lookupOrDefault("thermalDiffusion",false));
 Switch useDiffNN(chemistryProperties.lookupOrDefault("useDiffNN",false));
 Switch useMuNN(chemistryProperties.lookupOrDefault("useMuNN",false));
+word muNNmodel(chemistryProperties.lookupOrDefault<word>("muNNmodel","NN0"));
+Switch computeMuNNerror(chemistryProperties.lookupOrDefault("computeMuNNerror",false));
 dimensionedScalar Prt(chemistryProperties.lookup("Prt"));
 dimensionedScalar Sct(chemistryProperties.lookup("Sct"));

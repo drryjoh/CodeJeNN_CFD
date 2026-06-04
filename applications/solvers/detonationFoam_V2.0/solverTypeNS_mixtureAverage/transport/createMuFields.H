@@ -57,4 +57,20 @@ volScalarField yhi
     dimensionedScalar("yhi",dimensionSet (0,0,0,0,0,0,0),0.0)
 );
 
+// Relative error |mu_NN - mu_Wilke| / mu_Wilke per cell.
+// Populated every time-step when computeMuNNerror is on.
+volScalarField mu_err
+(
+    IOobject
+    (
+        "mu_err",
+        runTime.timeName(),
+        mesh,
+        IOobject::NO_READ,
+        IOobject::AUTO_WRITE
+    ),
+    mesh,
+    dimensionedScalar("mu_err", dimless, 0.0)
+);
+
 
