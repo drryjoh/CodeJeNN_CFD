@@ -29,12 +29,12 @@ startFrom       startTime;
 startTime       0;
 
 stopAt          endTime;
-endTime         300e-7;      // 100 us (~13 domain flow-through times)
+endTime         3.32e-4;     // 5 air-stream flow-through times (L/U_air = 0.015/226)
 
 deltaT          1e-8;        // initial dt; CFL-adjusted each step
 
 writeControl    adjustableRunTime;
-writeInterval   10e-7;       // write every 10 us
+writeInterval   6.64e-5;     // write every flow-through time
 
 purgeWrite      0;
 
