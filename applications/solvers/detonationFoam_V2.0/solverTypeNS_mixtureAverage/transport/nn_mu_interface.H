@@ -1,18 +1,20 @@
-#include "codeJeNN_mu.H"   // NN0 — also provides n_species_mu, species_name_mu_gen
-#include "model_1x4.hpp"   // NN1
-#include "model_2x8.hpp"   // NN2
-#include "model_3x12.hpp"  // NN3
+#include "codeJeNN_mu.H"      // NN0 — also provides n_species_mu, species_name_mu_gen
+#include "model_1x4.hpp"      // NN1
+#include "model_2x8.hpp"      // NN2
+#include "model_3x12.hpp"     // NN3
+#include "model_terrible.hpp" // NNT
 
 // ============================================================
 // nn_mu_interface.H
 //
 // Interface between OpenFOAM and the CodeJeNN viscosity NNs.
-// Four models are selectable via muNNmodel in chemistryProperties:
+// Five models are selectable via muNNmodel in chemistryProperties:
 //
-//   NN0 — codeJeNN_mu.H  (1x4, input [T, Y_H2, Y_O2, Y_N2])
-//   NN1 — model_1x4.hpp  (1x4, input [Y_O2, Y_N2, Y_H2, T])
-//   NN2 — model_2x8.hpp  (2x8, input [Y_O2, Y_N2, Y_H2, T])
-//   NN3 — model_3x12.hpp (3x12, input [Y_O2, Y_N2, Y_H2, T])
+//   NN0 — codeJeNN_mu.H     (1x4,  input [T, Y_H2, Y_O2, Y_N2])
+//   NN1 — model_1x4.hpp     (1x4,  input [Y_O2, Y_N2, Y_H2, T])
+//   NN2 — model_2x8.hpp     (2x8,  input [Y_O2, Y_N2, Y_H2, T])
+//   NN3 — model_3x12.hpp    (3x12, input [Y_O2, Y_N2, Y_H2, T])
+//   NNT — model_terrible.hpp(1x1,  input [Y_O2, Y_N2, Y_H2, T])
 //
 // NN1/2/3 input order matches train.py: df[['O2','N2','H2','T']].
 //
@@ -39,9 +41,10 @@ struct NNMuInterface
         if (name == "NN1") return 1;
         if (name == "NN2") return 2;
         if (name == "NN3") return 3;
+        if (name == "NNT") return 4;
         FatalErrorInFunction
             << "Unknown muNNmodel '" << name
-            << "'. Valid options: NN0, NN1, NN2, NN3."
+            << "'. Valid options: NN0, NN1, NN2, NN3, NNT."
             << exit(FatalError);
         return 0;
     }
@@ -109,6 +112,10 @@ struct NNMuInterface
             case 3:
                 in = {Y_O2, Y_N2, Y_H2, T_c};
                 return Foam::max(model_3x12(in)[0], scalar(SMALL));
+
+            case 4:
+                in = {Y_O2, Y_N2, Y_H2, T_c};
+                return Foam::max(model_terrible(in)[0], scalar(SMALL));
 
             default:
                 return scalar(SMALL);
