@@ -19,7 +19,7 @@ thermoType
 {
     type            hePsiThermo;
     mixture         multiComponentMixture;
-    transport       sutherland;
+    transport       logPolynomial;
     thermo          janaf;
     energy          sensibleInternalEnergy;
     equationOfState perfectGas;

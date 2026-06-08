@@ -17,7 +17,7 @@ defaultFieldValues
     volScalarFieldValue N2 0.767
     volScalarFieldValue T  1500
     volScalarFieldValue p  101325
-    volVectorFieldValue U  (1882 0 0)
+    volVectorFieldValue U  (226 0 0)
 );
 
 regions
@@ -33,7 +33,7 @@ regions
             volScalarFieldValue N2 0
             volScalarFieldValue T  350
             volScalarFieldValue p  101325
-            volVectorFieldValue U  (2133 0 0)
+            volVectorFieldValue U  (427 0 0)
         );
     }
 );

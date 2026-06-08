@@ -15,26 +15,26 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// Air:  M=2.5, c=753 m/s  =>  U = 1882 m/s
-// Fuel: M=1.5, c=1422 m/s =>  U = 2133 m/s
+// Air:  M=0.3, c=753 m/s  =>  U = 226 m/s
+// Fuel: M=0.3, c=1422 m/s =>  U = 427 m/s
 // Interior initialised with air conditions.
 
 dimensions      [0 1 -1 0 0 0 0];
 
-internalField   uniform (1882 0 0);
+internalField   uniform (226 0 0);
 
 boundaryField
 {
     inletAir
     {
         type        fixedValue;
-        value       uniform (1882 0 0);
+        value       uniform (226 0 0);
     }
 
     inletFuel
     {
         type        fixedValue;
-        value       uniform (2133 0 0);
+        value       uniform (427 0 0);
     }
 
     top
