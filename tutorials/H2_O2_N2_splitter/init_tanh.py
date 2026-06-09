@@ -2,34 +2,29 @@
 """
 init_tanh.py  –  Initialise H2/air splitter fields with a tanh profile in y.
 
-Writes nonuniform List<scalar/vector> values for BOTH the internalField AND
-the inlet boundary patches directly into the 0/ field files.  No OpenFOAM
-utilities (writeCellCentres, postProcess, etc.) are required.
-
-Cell/face centre y-coordinates are computed analytically from the blockMeshDict
-grading.  OpenFOAM cell ordering: i (x) fastest, then j (y), then k (z);
-block 0 (lower) before block 1 (upper).  Inlet face ordering: j = 0..N-1.
+Reads constant/polyMesh to get the correct cell-centre and face-centre
+y-coordinates for any mesh state (original blockMesh or refined).
 
 Usage:
-    blockMesh
+    blockMesh          # (and any mesh refinement steps)
     python3 init_tanh.py
     detonationFoam_V2.0
 
 Tanh profile
 ------------
     blend(y) = 0.5*(1 + tanh((y - y_c)/delta))
-      → 0  at y << y_c  (pure H2)
-      → 1  at y >> y_c  (pure air)
+      → 0  at y << y_c  (H2 / fuel state)
+      → 1  at y >> y_c  (air state)
 
-    delta = 1e-4/3 ≈ 33 µm  →  99% within ±0.1 mm of y_c
+    Increase delta for a thicker transition layer.
 """
 
-import re, sys
+import os, re, sys
 import numpy as np
 
 # ── tuneable parameters ──────────────────────────────────────────────────────
 y_c   = 0.0025          # centreline (m)
-delta = 1e-4 / 3.0      # half-thickness (m)  — 99% within ±0.1 mm
+delta = 1e-4 / 3.0      # half-thickness (m)  →  99% within ±0.1 mm
 
 U_H2,  U_air  = 427.0, 226.0
 T_H2,  T_air  = 350.0, 1500.0
@@ -37,39 +32,9 @@ H2_H2, H2_air = 1.0,   0.0
 O2_H2, O2_air = 0.0,   0.233
 N2_H2, N2_air = 0.0,   0.767
 
-# ── mesh parameters (keep in sync with blockMeshDict) ────────────────────────
-Nx = 190    # cells in x per block
-Ny =  60    # cells in y per block
-
-# R = last-cell / first-cell expansion ratio along y
-BLOCK0 = dict(y_start=0.0,    y_end=0.0025, N=Ny, R=0.0917)  # lower / H2
-BLOCK1 = dict(y_start=0.0025, y_end=0.005,  N=Ny, R=10.9)    # upper / air
-
-INLET_PATCHES = {
-    "inletFuel": BLOCK0,   # left face of lower block
-    "inletAir":  BLOCK1,   # left face of upper block
-}
+MESH_DIR    = "constant/polyMesh"
+INLET_NAMES = ["inletFuel", "inletAir"]
 # ─────────────────────────────────────────────────────────────────────────────
-
-
-def midpoints(y_start, y_end, N, R):
-    """
-    Midpoints (cell/face centres) for N cells over [y_start, y_end]
-    with last/first grading ratio R.
-    """
-    L = y_end - y_start
-    if abs(R - 1.0) < 1e-6:
-        edges = np.linspace(y_start, y_end, N + 1)
-    else:
-        r  = R ** (1.0 / (N - 1))
-        h1 = L * (r - 1.0) / (r**N - 1.0)
-        edges = [y_start]
-        h = h1
-        for _ in range(N):
-            edges.append(edges[-1] + h)
-            h *= r
-        edges = np.array(edges)
-    return 0.5 * (edges[:-1] + edges[1:])
 
 
 def tanh_blend(y, lo, hi):
@@ -77,7 +42,114 @@ def tanh_blend(y, lo, hi):
     return lo + (hi - lo) * b
 
 
-# ── OpenFOAM field helpers ───────────────────────────────────────────────────
+# ── polyMesh readers ──────────────────────────────────────────────────────────
+
+def _clean(text):
+    text = re.sub(r'//[^\n]*', '', text)
+    return re.sub(r'/\*.*?\*/', '', text, flags=re.DOTALL)
+
+
+def _list_body(text):
+    """Return the text between the outermost ( ) that follows the first integer count."""
+    m = re.search(r'\d+\s*\n\s*\(', text)
+    if not m:
+        raise ValueError("Cannot find list in file")
+    start = text.index('(', m.start()) + 1
+    depth, i = 1, start
+    while depth:
+        if   text[i] == '(': depth += 1
+        elif text[i] == ')': depth -= 1
+        i += 1
+    return text[start:i - 1]
+
+
+def read_points():
+    text = _clean(open(f"{MESH_DIR}/points").read())
+    body = _list_body(text)
+    tuples = re.findall(
+        r'\(\s*([-\d.eE+]+)\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s*\)', body)
+    return np.array([(float(a), float(b), float(c)) for a, b, c in tuples])
+
+
+def read_faces():
+    """Return list of vertex-index lists, one per face."""
+    text = _clean(open(f"{MESH_DIR}/faces").read())
+    body = _list_body(text)
+    # Match individual face entries: optional_count(v0 v1 ...)  on each line
+    face_re = re.compile(r'^\s*\d*\s*\(\s*((?:\d+\s*)+)\)\s*$', re.MULTILINE)
+    return [list(map(int, m.group(1).split())) for m in face_re.finditer(body)]
+
+
+def read_int_list(fname):
+    """Read a flat integer list (owner, neighbour, etc.)."""
+    text = _clean(open(f"{MESH_DIR}/{fname}").read())
+    body = _list_body(text)
+    return np.array(list(map(int, body.split())))
+
+
+def read_boundary():
+    text = _clean(open(f"{MESH_DIR}/boundary").read())
+    info = {}
+    for m in re.finditer(r'\b(\w+)\s*\{([^{}]*)\}', text):
+        name, block = m.group(1), m.group(2)
+        sf = re.search(r'startFace\s+(\d+)', block)
+        nf = re.search(r'nFaces\s+(\d+)', block)
+        if sf and nf:
+            info[name] = (int(sf.group(1)), int(nf.group(1)))
+    return info
+
+
+# ── compute cell-centre and face-centre y-coords ──────────────────────────────
+
+if not os.path.isdir(MESH_DIR):
+    sys.exit(f"ERROR: {MESH_DIR} not found — run blockMesh first.")
+
+print("Reading polyMesh …")
+pts      = read_points()
+faces    = read_faces()
+owner    = read_int_list("owner")
+boundary = read_boundary()
+
+n_cells = int(owner.max()) + 1
+
+# Face-centre y (average of vertex y-coords)
+face_y = np.array([np.mean(pts[f, 1]) for f in faces])
+
+# Cell-centre y = average of face-centre y for all faces owned by each cell
+cell_y_sum   = np.zeros(n_cells)
+cell_face_cnt = np.zeros(n_cells, dtype=int)
+for fi, fy in enumerate(face_y):
+    c = owner[fi]
+    cell_y_sum[c]   += fy
+    cell_face_cnt[c] += 1
+cell_y = cell_y_sum / cell_face_cnt
+
+print(f"  {n_cells} cells,  y ∈ [{cell_y.min()*1e3:.4f}, {cell_y.max()*1e3:.4f}] mm")
+
+# Inlet patch face-centre y (already read in correct polyMesh order)
+patch_y = {}
+for name in INLET_NAMES:
+    if name not in boundary:
+        print(f"  WARNING: patch '{name}' not found")
+        continue
+    sf, nf = boundary[name]
+    yf = face_y[sf:sf + nf]
+    patch_y[name] = yf
+    print(f"  patch '{name}': {nf} faces, "
+          f"y ∈ [{yf.min()*1e3:.4f}, {yf.max()*1e3:.4f}] mm")
+
+print(f"\nBlend: y_c={y_c*1e3:.2f} mm, δ={delta*1e6:.1f} µm "
+      f"(99% within ±{delta*3*1e3:.2f} mm)\n")
+
+# ── quick sanity check: print Ux at key faces ─────────────────────────────────
+for name, yf in patch_y.items():
+    Ux = tanh_blend(yf, U_H2, U_air)
+    print(f"  {name}: Ux min={Ux.min():.1f}  max={Ux.max():.1f}  "
+          f"(at y_min={yf.min()*1e3:.3f} mm, y_max={yf.max()*1e3:.3f} mm)")
+print()
+
+
+# ── OpenFOAM field writers ────────────────────────────────────────────────────
 
 _ANY_INTERNAL = re.compile(r'internalField\s.*?;', re.DOTALL)
 _VALUE_ENTRY  = re.compile(
@@ -103,7 +175,6 @@ def set_internal(text, blk):
 
 
 def find_patch_braces(text, name):
-    """Return (content, open_idx, close_plus1_idx) for named patch block."""
     m = re.search(rf'\b{re.escape(name)}\s*\{{', text)
     if not m:
         return None, -1, -1
@@ -120,29 +191,14 @@ def find_patch_braces(text, name):
 def set_patch_value(text, name, blk):
     content, bs, be = find_patch_braces(text, name)
     if content is None:
-        print(f"  WARNING: patch '{name}' not found")
+        print(f"  WARNING: patch '{name}' not found in field file")
         return text
     new_content = _VALUE_ENTRY.sub(f"value       {blk}", content, count=1)
     return text[:bs + 1] + new_content + text[be - 1:]
 
 
-# ── build y-coordinate arrays ─────────────────────────────────────────────────
-# Internal cells: each j-row has Nx cells with the same y (i varies fastest)
-yj0 = midpoints(**BLOCK0)
-yj1 = midpoints(**BLOCK1)
-y_int = np.concatenate([np.repeat(yj0, Nx), np.repeat(yj1, Nx)])
-
-# Inlet face centres: 1 face per j-row (left face of each block)
-patch_y = {name: midpoints(**p) for name, p in INLET_PATCHES.items()}
-
-print(f"Internal: {len(y_int)} cells, y ∈ [{y_int.min()*1e3:.4f}, {y_int.max()*1e3:.4f}] mm")
-for name, yf in patch_y.items():
-    print(f"Patch '{name}': {len(yf)} faces, "
-          f"y ∈ [{yf.min()*1e3:.4f}, {yf.max()*1e3:.4f}] mm")
-print(f"\nBlend: y_c={y_c*1e3:.2f} mm, δ={delta*1e6:.1f} µm "
-      f"(99% within ±{delta*3*1e3:.2f} mm)\n")
-
 # ── write fields ──────────────────────────────────────────────────────────────
+
 FIELDS = [
     ("0/T",  False, T_H2,  T_air),
     ("0/H2", False, H2_H2, H2_air),
@@ -155,15 +211,13 @@ print("Writing tanh-smoothed fields:")
 for path, is_vec, lo, hi in FIELDS:
     text = open(path).read()
 
-    # internal field
-    v = tanh_blend(y_int, lo, hi)
+    v   = tanh_blend(cell_y, lo, hi)
     blk = (vector_block(v, np.zeros_like(v), np.zeros_like(v))
            if is_vec else scalar_block(v))
     text = set_internal(text, blk)
 
-    # inlet patch boundary values
     for name, yf in patch_y.items():
-        vp  = tanh_blend(yf, lo, hi)
+        vp   = tanh_blend(yf, lo, hi)
         blkp = (vector_block(vp, np.zeros_like(vp), np.zeros_like(vp))
                 if is_vec else scalar_block(vp))
         text = set_patch_value(text, name, blkp)

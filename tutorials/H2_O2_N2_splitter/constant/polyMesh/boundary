@@ -20,39 +20,39 @@ FoamFile
     inletFuel
     {
         type            patch;
-        nFaces          40;
-        startFace       48120;
+        nFaces          60;
+        startFace       45290;
     }
     inletAir
     {
         type            patch;
-        nFaces          40;
-        startFace       48160;
+        nFaces          60;
+        startFace       45350;
     }
     outlet
     {
         type            patch;
-        nFaces          80;
-        startFace       48200;
+        nFaces          120;
+        startFace       45410;
     }
     bottom
     {
         type            patch;
-        nFaces          100;
-        startFace       48280;
+        nFaces          190;
+        startFace       45530;
     }
     top
     {
         type            patch;
-        nFaces          100;
-        startFace       48380;
+        nFaces          190;
+        startFace       45720;
     }
     frontAndBack
     {
         type            empty;
         inGroups        List<word> 1(empty);
-        nFaces          47600;
-        startFace       48480;
+        nFaces          45600;
+        startFace       45910;
     }
 )
 
