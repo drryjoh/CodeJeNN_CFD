@@ -15,8 +15,8 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// Use Navier-Stokes with mixture-averaged transport (needed for NN transport).
-solverType      NS_mixtureAverage;
+// Euler (inviscid) for startup — switch to NS_mixtureAverage once settled.
+solverType      Euler;
 
 SW_position_limit   1.0;
 
