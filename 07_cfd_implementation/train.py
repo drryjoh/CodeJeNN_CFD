@@ -49,6 +49,7 @@ def main():
 
     #get number of sampels
     NUM_SAMPLES = X.shape[0]
+    print(f'found {NUM_SAMPLES} samples.')
 
     X_train, X_val, y_train, y_val = sklearn.model_selection.train_test_split(
         X, y, test_size=SPLIT, random_state=SEED
@@ -99,7 +100,7 @@ def main():
     # save model and scalers
     # https://stackoverflow.com/questions/54879434/how-to-use-pickle-to-save-sklearn-model
     os.mkdir(MODEL_DIR)
-    model.save(f"{MODEL_DIR}/model_terrible.keras")
+    model.save(f"{MODEL_DIR}/model_lo.keras")
     np.save(f"{MODEL_DIR}/input_mean.npy", x_norm.mean_)
     np.save(f"{MODEL_DIR}/input_std.npy", x_norm.scale_)
     np.save(f"{MODEL_DIR}/output_mean.npy", y_norm.mean_)
