@@ -15,8 +15,7 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// Euler (inviscid) for startup — switch to NS_mixtureAverage once settled.
-solverType      Euler;
+solverType      NS_mixtureAverage;
 
 SW_position_limit   1.0;
 

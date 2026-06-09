@@ -1,19 +1,20 @@
 /*---------------------------------------------------------------------------*\
   checkNNPrediction.C
 
-  Validates three CodeJeNN viscosity NNs (1x4, 2x8, 3x12) against the
-  polynomial Wilke model.
+  Validates five CodeJeNN viscosity NNs (NN0, 1x4, 2x8, 3x12, terrible)
+  against the polynomial Wilke model.
 
-  For each of nSamples random states (T, Y):
-    1. Draw Y_i ~ Uniform(0,1), normalise so sum(Y_i) = 1.
-    2. Draw T    ~ Uniform(200, 3000) K.
-    3. Compute polynomial per-species Mu_i, apply Wilke rule → mu_wilke.
-    4. Call each NN model → mu_NN1, mu_NN2, mu_NN3.
-    5. Relative error = |mu_wilke - mu_NNk| / mu_wilke.
-    6. Write CSV: j, Y_H2, Y_O2, Y_N2, T, mu_wilke, mu_NN1, mu_NN2, mu_NN3,
-                  e1, e2, e3
+  Sampling matches generateData.C exactly:
+    a) Uniform Dirichlet  (fraction: 1 - fracPhysical)
+    b) Physical mixing-line  (fraction: fracPhysical)
+         Y = alpha * Y_fuel + (1-alpha) * Y_oxidizer,  alpha ~ Uniform(0,1)
+         T blended + scatter
 
-  NN input order: [Y_H2, Y_O2, Y_N2, T]  (matches training normalization)
+  For each state:
+    1. Compute polynomial per-species Mu_i, apply Wilke rule → mu_wilke.
+    2. Call each NN model → mu_NN0 … mu_NNT.
+    3. Relative error = |mu_wilke - mu_NNk| / mu_wilke.
+    4. Write CSV + print summary statistics.
 
   Reads from:  constant/generateDataProperties
   Writes to:   outputFile (default: nn_check_results.csv)
@@ -22,8 +23,6 @@
       checkNNPrediction
 \*---------------------------------------------------------------------------*/
 
-// NN model headers — included at file scope; template declarations are not
-// permitted inside a local scope such as main().
 #include "codeJeNN_mu.H"       // NN0: predict_mu([T, Y_H2, Y_O2, Y_N2])
 #include "model_1x4.hpp"       // NN1: model_1x4([Y_O2, Y_N2, Y_H2, T])
 #include "model_2x8.hpp"       // NN2: model_2x8([Y_O2, Y_N2, Y_H2, T])
@@ -115,6 +114,54 @@ int main(int argc, char *argv[])
         mu4[i] = readScalar(sd.lookup("Mu4"));
     }
 
+    // ----------------------------------------------------------------
+    // Physical mixing-line importance sampling (matches generateData.C)
+    // ----------------------------------------------------------------
+    const scalar fracPhysical =
+        props.lookupOrDefault<scalar>("fracPhysical", 0.0);
+
+    List<scalar> Y_fuel(nSp, scalar(0));
+    List<scalar> Y_ox(nSp, scalar(0));
+    scalar T_fuel    = 350.0;
+    scalar T_ox      = 1500.0;
+    scalar T_scatter = 200.0;
+
+    if (fracPhysical > 0)
+    {
+        if (props.found("Y_fuel"))
+        {
+            List<scalar> tmp(props.lookup("Y_fuel"));
+            Y_fuel = tmp;
+        }
+        else
+        {
+            Y_fuel[0] = 1.0;
+        }
+
+        if (props.found("Y_oxidizer"))
+        {
+            List<scalar> tmp(props.lookup("Y_oxidizer"));
+            Y_ox = tmp;
+        }
+        else if (nSp >= 3)
+        {
+            Y_ox[1] = 0.233;
+            Y_ox[2] = 0.767;
+        }
+
+        T_fuel    = props.lookupOrDefault<scalar>("T_fuel",      350.0);
+        T_ox      = props.lookupOrDefault<scalar>("T_oxidizer", 1500.0);
+        T_scatter = props.lookupOrDefault<scalar>("T_scatter",   200.0);
+
+        Info << "Physical mixing-line sampling enabled: fracPhysical = "
+             << fracPhysical << nl
+             << "  Y_fuel    = " << Y_fuel    << nl
+             << "  Y_oxidizer= " << Y_ox      << nl
+             << "  T_fuel    = " << T_fuel    << " K" << nl
+             << "  T_oxidizer= " << T_ox      << " K" << nl
+             << "  T_scatter = " << T_scatter << " K" << endl;
+    }
+
     Info << "Checking NN predictions for " << nSamples << " samples"
          << " | species: " << speciesNames << nl << endl;
 
@@ -133,14 +180,30 @@ int main(int argc, char *argv[])
 
     for (label j = 0; j < nSamples; ++j)
     {
-        // -- Mass fractions ----------------------------------------
         List<scalar> Y(nSp);
-        scalar Ysum = 0;
-        for (int i = 0; i < nSp; ++i) { Y[i] = uni(rng); Ysum += Y[i]; }
-        for (int i = 0; i < nSp; ++i) Y[i] /= Ysum;
+        scalar T;
 
-        // -- Temperature -------------------------------------------
-        const scalar T    = 200.0 + uni(rng) * 2800.0;
+        if (fracPhysical > 0 && uni(rng) < fracPhysical)
+        {
+            // -- Physical mixing-line sample ---------------------------
+            const scalar alpha = uni(rng);
+            for (int i = 0; i < nSp; ++i)
+                Y[i] = alpha * Y_fuel[i] + (1.0 - alpha) * Y_ox[i];
+
+            const scalar T_blend = alpha * T_fuel + (1.0 - alpha) * T_ox;
+            T = T_blend + (2.0 * uni(rng) - 1.0) * T_scatter;
+            T = std::max(T, scalar(200.0));
+            T = std::min(T, scalar(3000.0));
+        }
+        else
+        {
+            // -- Uniform Dirichlet + full T range ----------------------
+            scalar Ysum = 0;
+            for (int i = 0; i < nSp; ++i) { Y[i] = uni(rng); Ysum += Y[i]; }
+            for (int i = 0; i < nSp; ++i) Y[i] /= Ysum;
+            T = 200.0 + uni(rng) * 2800.0;
+        }
+
         const scalar logT = std::log(T);
 
         // -- Mole fractions ----------------------------------------
@@ -161,16 +224,16 @@ int main(int argc, char *argv[])
 
         // -- NN predictions [Pa·s] ---------------------------------
         //    NN0 input order: [T, Y_H2, Y_O2, Y_N2]  (predict_mu wrapper)
-        //    NN1/2/3 input order: [Y_O2, Y_N2, Y_H2, T]  (train.py: df[['O2','N2','H2','T']])
+        //    NN1/2/3/NNT input order: [Y_O2, Y_N2, Y_H2, T]
         //    Species list order (generateDataProperties): H2=Y[0], O2=Y[1], N2=Y[2]
         std::array<scalar, 4> nn0_input = { T,    Y[0], Y[1], Y[2] };
-        std::array<scalar, 4> nn_input  = { Y[1], Y[2], Y[0], T   };
+        std::array<scalar, 4> nn_input  = { Y[1], Y[2], Y[0], T    };
 
         const scalar muNN0 = std::max(scalar(predict_mu(nn0_input)), scalar(1e-30));
-        const scalar muNN1 = std::max(model_1x4(nn_input)[0],         scalar(1e-30));
-        const scalar muNN2 = std::max(model_2x8(nn_input)[0],         scalar(1e-30));
-        const scalar muNN3 = std::max(model_3x12(nn_input)[0],        scalar(1e-30));
-        const scalar muNNT = std::max(model_terrible(nn_input)[0],    scalar(1e-30));
+        const scalar muNN1 = std::max(model_1x4(nn_input)[0],        scalar(1e-30));
+        const scalar muNN2 = std::max(model_2x8(nn_input)[0],        scalar(1e-30));
+        const scalar muNN3 = std::max(model_3x12(nn_input)[0],       scalar(1e-30));
+        const scalar muNNT = std::max(model_terrible(nn_input)[0],   scalar(1e-30));
 
         // -- Relative errors ---------------------------------------
         const scalar e0 = std::abs(muWilke - muNN0) / muWilke;

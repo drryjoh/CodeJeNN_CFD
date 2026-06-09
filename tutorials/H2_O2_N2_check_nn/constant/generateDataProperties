@@ -23,6 +23,15 @@ outputFile      "nn_check_results.csv";
 // Species list — must match the order in codeJeNN_mu.H (n_species_mu).
 species ( H2 O2 N2 );
 
+// Importance sampling — must match generateDataProperties in H2_O2_N2_mu_data
+// so that checkNNPrediction evaluates on the same distribution used for training.
+fracPhysical    0.4;
+Y_fuel          (1 0 0);           // pure H2
+Y_oxidizer      (0 0.233 0.767);   // air
+T_fuel          350;               // K
+T_oxidizer      1500;              // K
+T_scatter       200;               // K
+
 // Per-species polynomial data for the reference (polynomial) mu.
 // Must match what the NN was trained against.
 //   mu_i [Pa·s] = 0.1 * exp( Mu1 + ln(T)*(Mu2 + ln(T)*(Mu3 + ln(T)*Mu4)) )

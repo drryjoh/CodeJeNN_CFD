@@ -95,6 +95,7 @@ if (useMuNN)
 {
     // NN outputs mu_mix directly — skip Wilke rule
     nnMuInterface.compute(mixMu, Y, T);
+    mixMu.correctBoundaryConditions();
     forAll(Y,i)
     {
         volScalarField& Xi = X[i];
