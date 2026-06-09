@@ -2,37 +2,68 @@
 """
 init_tanh.py  –  Initialise H2/air splitter internal field with a tanh profile.
 
-The inlet boundary conditions are handled by codedFixedValue in 0/{U,T,H2,O2,N2}
-and do not need to be touched here.
+No writeCellCentres needed.  Cell-centre y-coordinates are computed analytically
+from the blockMeshDict grading, using OpenFOAM's cell ordering convention:
+    i (x) varies fastest, then j (y), then k (z), block 0 before block 1.
 
 Usage:
     blockMesh
-    writeCellCentres -time 0      # writes 0/Cy
     python3 init_tanh.py
     detonationFoam_V2.0
 
+Inlet boundary conditions are handled by codedFixedValue in 0/{U,T,H2,O2,N2}.
+
 Tanh profile
 ------------
-    blend(y) = 0.5 * (1 + tanh((y - y_c) / delta))
-      → 0  at y << y_c  (pure H2)
-      → 1  at y >> y_c  (pure air)
+    blend(y) = 0.5*(1 + tanh((y - y_c)/delta))
+      → 0 at y << y_c  (pure H2)
+      → 1 at y >> y_c  (pure air)
 
-    delta = 1e-4/3 ≈ 33 µm  →  tanh(3) = 0.995  →  99% within ±0.1 mm of y_c
+    delta = 1e-4/3 ≈ 33 µm  →  99% transition within ±0.1 mm of y_c
 """
 
-import os, re, sys
+import re, sys
 import numpy as np
 
 # ── tuneable parameters ──────────────────────────────────────────────────────
 y_c   = 0.0025          # centreline (m)  — must match codedFixedValue in 0/
 delta = 1e-4 / 3.0      # half-thickness (m)
 
-U_H2,  U_air  = 427.0, 226.0    # Ux (m/s)
-T_H2,  T_air  = 350.0, 1500.0   # K
+U_H2,  U_air  = 427.0, 226.0
+T_H2,  T_air  = 350.0, 1500.0
 H2_H2, H2_air = 1.0,   0.0
 O2_H2, O2_air = 0.0,   0.233
 N2_H2, N2_air = 0.0,   0.767
+
+# ── mesh parameters (keep in sync with blockMeshDict) ────────────────────────
+Nx = 190    # cells in x per block
+Ny =  60    # cells in y per block
+
+# Block 0 (lower, H2 stream):  y = 0 → 2.5 mm, y-grading R = last/first
+BLOCK0 = dict(y_start=0.0,    y_end=0.0025, N=Ny, R=0.0917)
+# Block 1 (upper, air stream): y = 2.5 → 5 mm, y-grading R = last/first
+BLOCK1 = dict(y_start=0.0025, y_end=0.005,  N=Ny, R=10.9)
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def cell_centres_y(y_start, y_end, N, R):
+    """
+    y-coordinates of cell centres for N cells over [y_start, y_end]
+    with last/first grading ratio R.
+    """
+    L = y_end - y_start
+    if abs(R - 1.0) < 1e-6:
+        edges = np.linspace(y_start, y_end, N + 1)
+    else:
+        r  = R ** (1.0 / (N - 1))
+        h1 = L * (r - 1.0) / (r**N - 1.0)
+        edges = [y_start]
+        h = h1
+        for _ in range(N):
+            edges.append(edges[-1] + h)
+            h *= r
+        edges = np.array(edges)
+    return 0.5 * (edges[:-1] + edges[1:])
 
 
 def tanh_blend(y, lo, hi):
@@ -40,9 +71,6 @@ def tanh_blend(y, lo, hi):
     return lo + (hi - lo) * b
 
 
-_INT_NONUNIFORM = re.compile(
-    r'internalField\s+nonuniform\s+List<scalar>\s+\d+\s*\n\s*\((.*?)\)\s*;',
-    re.DOTALL)
 _ANY_INTERNAL = re.compile(r'internalField\s.*?;', re.DOTALL)
 
 
@@ -61,28 +89,25 @@ def set_internal(text, block_str):
     return _ANY_INTERNAL.sub(f"internalField   {block_str}", text, count=1)
 
 
-# ── load cell-centre y-coordinates ───────────────────────────────────────────
-for candidate in ["0/Cy", "0/ccy", "0/C_1"]:
-    if os.path.exists(candidate):
-        cy_path = candidate
-        break
-else:
-    sys.exit(
-        "\nERROR: y cell-centre field not found.\n"
-        "Run:  blockMesh && writeCellCentres -time 0\n")
+# ── build cell-centre y array ─────────────────────────────────────────────────
+# OpenFOAM blockMesh cell ordering: i fastest, then j, then k; block 0 first.
+# All cells at the same j-index share the same y-coordinate.
+# Each j-row has Nx cells (one per x-column).
+yj0 = cell_centres_y(**BLOCK0)   # shape (Ny,)
+yj1 = cell_centres_y(**BLOCK1)   # shape (Ny,)
 
-cy_text = open(cy_path).read()
-m = _INT_NONUNIFORM.search(cy_text)
-if not m:
-    sys.exit(f"ERROR: cannot parse nonuniform internalField in {cy_path}")
-y = np.fromstring(m.group(1), sep='\n')
+y = np.concatenate([
+    np.repeat(yj0, Nx),   # block 0: Ny*Nx cells
+    np.repeat(yj1, Nx),   # block 1: Ny*Nx cells
+])
 
-print(f"Loaded {len(y)} cell centres from '{cy_path}'")
-print(f"  y ∈ [{y.min()*1e3:.3f}, {y.max()*1e3:.3f}] mm")
+ncells = len(y)
+print(f"Cell centres computed analytically: {ncells} cells")
+print(f"  y ∈ [{y.min()*1e3:.4f}, {y.max()*1e3:.4f}] mm")
 print(f"  y_c = {y_c*1e3:.2f} mm,  δ = {delta*1e6:.1f} µm  "
       f"(99% within ±{delta*3*1e3:.2f} mm)\n")
 
-# ── write internal fields ─────────────────────────────────────────────────────
+# ── write internalField of each field file ────────────────────────────────────
 FIELDS = [
     ("0/T",  False, T_H2,  T_air),
     ("0/H2", False, H2_H2, H2_air),
@@ -101,4 +126,4 @@ for path, is_vec, lo, hi in FIELDS:
         f.write(set_internal(text, blk))
     print(f"  {path}")
 
-print("\nDone.  Boundary conditions are set by codedFixedValue in 0/.")
+print("\nDone.  Boundary conditions enforced by codedFixedValue at runtime.")
