@@ -23,29 +23,30 @@ boundaryField
 {
     inletAir
     {
-        type        fixedValue;
-        value       uniform 101325;
+        type        zeroGradient;
     }
 
     inletFuel
     {
-        type        fixedValue;
-        value       uniform 101325;
+        type        zeroGradient;
     }
 
     top
     {
-        type        zeroGradient;
+        type        fixedValue;
+        value       uniform 101325;
     }
 
     bottom
     {
-        type        zeroGradient;
+        type        fixedValue;
+        value       uniform 101325;
     }
 
     outlet
     {
-        type        zeroGradient;
+        type        fixedValue;
+        value       uniform 101325;
     }
 
     frontAndBack
