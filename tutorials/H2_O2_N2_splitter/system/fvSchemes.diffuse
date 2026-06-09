@@ -1,0 +1,58 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     |                                                 |
+|   \\  /    A nd           |                                                 |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      fvSchemes;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// First-order schemes for diffuse startup.
+// Switch to fvSchemes.target after ~1 flow-through once transient has settled.
+
+fluxScheme      Kurganov;
+
+ddtSchemes
+{
+    default         Euler;
+}
+
+gradSchemes
+{
+    default         Gauss linear;
+}
+
+divSchemes
+{
+    default         Gauss linear;
+    div(rhoPhi,Yi_h) Gauss upwind;
+}
+
+laplacianSchemes
+{
+    default         Gauss linear corrected;
+}
+
+interpolationSchemes
+{
+    default             linear;
+    reconstruct(rho)    none;
+    reconstruct(rhoU)   none;
+    reconstruct(rPsi)   none;
+    reconstruct(e)      none;
+    reconstruct(c)      none;
+}
+
+snGradSchemes
+{
+    default             corrected;
+}
+
+// ************************************************************************* //
