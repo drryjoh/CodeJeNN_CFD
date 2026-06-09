@@ -26,7 +26,7 @@ ddtSchemes
 
 gradSchemes
 {
-    default         Gauss linear;
+    default         cellLimited Gauss linear 1;
 }
 
 divSchemes
@@ -43,11 +43,11 @@ laplacianSchemes
 interpolationSchemes
 {
     default             linear;
-    reconstruct(rho)    none;
-    reconstruct(rhoU)   none;
-    reconstruct(rPsi)   none;
-    reconstruct(e)      none;
-    reconstruct(c)      none;
+    reconstruct(rho)    upwind;
+    reconstruct(rhoU)   upwind;
+    reconstruct(rPsi)   upwind;
+    reconstruct(e)      upwind;
+    reconstruct(c)      upwind;
 }
 
 snGradSchemes
