@@ -23,14 +23,46 @@ boundaryField
 {
     inletAir
     {
-        type        fixedValue;
-        value       uniform 0.767;
+        type            codedFixedValue;
+        value           uniform 0.767;
+        name            tanhMixingN2;
+        code
+        #{
+            const vectorField& Cf = patch().Cf();
+            scalarField& N2 = *this;
+            const scalar y0     = 2.5e-3;
+            const scalar delta  = 3.333e-5;
+            const scalar N2_H2  = 0.0;
+            const scalar N2_air = 0.767;
+            forAll(N2, faceI)
+            {
+                const scalar y = Cf[faceI].y();
+                const scalar s = 0.5*(1.0 + Foam::tanh((y - y0)/delta));
+                N2[faceI] = (1.0 - s)*N2_H2 + s*N2_air;
+            }
+        #};
     }
 
     inletFuel
     {
-        type        fixedValue;
-        value       uniform 0;
+        type            codedFixedValue;
+        value           uniform 0;
+        name            tanhMixingN2;
+        code
+        #{
+            const vectorField& Cf = patch().Cf();
+            scalarField& N2 = *this;
+            const scalar y0     = 2.5e-3;
+            const scalar delta  = 3.333e-5;
+            const scalar N2_H2  = 0.0;
+            const scalar N2_air = 0.767;
+            forAll(N2, faceI)
+            {
+                const scalar y = Cf[faceI].y();
+                const scalar s = 0.5*(1.0 + Foam::tanh((y - y0)/delta));
+                N2[faceI] = (1.0 - s)*N2_H2 + s*N2_air;
+            }
+        #};
     }
 
     top
