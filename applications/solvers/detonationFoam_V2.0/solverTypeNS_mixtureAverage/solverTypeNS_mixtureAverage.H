@@ -23,6 +23,29 @@ NNMuInterface nnMuInterface(mesh, muNNmodel);
 if (useMuNN)
     nnMuInterface.check_species_list(Y);
 
+// Cumulative count of cells where the NN output was non-positive and was
+// replaced by SMALL.  Only created when useMuNN is active.
+autoPtr<volScalarField> pHistoricalErrorCount;
+if (useMuNN)
+{
+    pHistoricalErrorCount.reset
+    (
+        new volScalarField
+        (
+            IOobject
+            (
+                "HistoricalErrorCount",
+                runTime.timeName(),
+                mesh,
+                IOobject::READ_IF_PRESENT,
+                IOobject::AUTO_WRITE
+            ),
+            mesh,
+            dimensionedScalar("zero", dimless, scalar(0))
+        )
+    );
+}
+
 while (runTime.run())
 {
 #include "updateTransProperties.H"

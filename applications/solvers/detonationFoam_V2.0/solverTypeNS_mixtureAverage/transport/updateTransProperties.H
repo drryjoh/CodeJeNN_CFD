@@ -93,8 +93,10 @@ forAll(Y,i)
 	
 if (useMuNN)
 {
-    // NN outputs mu_mix directly — skip Wilke rule
-    nnMuInterface.compute(mixMu, Y, T);
+    // NN outputs mu_mix directly — skip Wilke rule.
+    // Also increments HistoricalErrorCount for cells where the raw NN
+    // output was non-positive (clamped to SMALL).
+    nnMuInterface.compute(mixMu, Y, T, *pHistoricalErrorCount);
     mixMu.correctBoundaryConditions();
     forAll(Y,i)
     {

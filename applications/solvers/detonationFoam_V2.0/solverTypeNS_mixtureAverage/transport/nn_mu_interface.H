@@ -83,10 +83,9 @@ struct NNMuInterface
         Info << "NNMuInterface: species check passed" << endl;
     }
 
-    // Predict viscosity [Pa·s] for a single cell.
-    // Solver species layout: Y[0]=H2, Y[1]=O2, Y[2]=N2.
-    // NN1/2/3 training order: [O2, N2, H2, T].
-    inline scalar predictCell
+    // Raw NN output [Pa·s] for a single cell — no clamping.
+    // Returns a negative value when the NN extrapolates out of range.
+    inline scalar predictCellRaw
     (
         scalar T_c,
         scalar Y_H2,
@@ -97,29 +96,25 @@ struct NNMuInterface
         std::array<scalar, 4> in;
         switch (modelIdx_)
         {
-            case 0:
-                in = {T_c, Y_H2, Y_O2, Y_N2};
-                return Foam::max(predict_mu(in), scalar(SMALL));
-
-            case 1:
-                in = {Y_O2, Y_N2, Y_H2, T_c};
-                return Foam::max(model_1x4(in)[0], scalar(SMALL));
-
-            case 2:
-                in = {Y_O2, Y_N2, Y_H2, T_c};
-                return Foam::max(model_2x8(in)[0], scalar(SMALL));
-
-            case 3:
-                in = {Y_O2, Y_N2, Y_H2, T_c};
-                return Foam::max(model_3x12(in)[0], scalar(SMALL));
-
-            case 4:
-                in = {Y_O2, Y_N2, Y_H2, T_c};
-                return Foam::max(model_terrible(in)[0], scalar(SMALL));
-
-            default:
-                return scalar(SMALL);
+            case 0: in = {T_c, Y_H2, Y_O2, Y_N2}; return predict_mu(in);
+            case 1: in = {Y_O2, Y_N2, Y_H2, T_c}; return model_1x4(in)[0];
+            case 2: in = {Y_O2, Y_N2, Y_H2, T_c}; return model_2x8(in)[0];
+            case 3: in = {Y_O2, Y_N2, Y_H2, T_c}; return model_3x12(in)[0];
+            case 4: in = {Y_O2, Y_N2, Y_H2, T_c}; return model_terrible(in)[0];
+            default: return scalar(0);
         }
+    }
+
+    // Clamped prediction — returns SMALL when raw output is non-positive.
+    inline scalar predictCell
+    (
+        scalar T_c,
+        scalar Y_H2,
+        scalar Y_O2,
+        scalar Y_N2
+    ) const
+    {
+        return Foam::max(predictCellRaw(T_c, Y_H2, Y_O2, Y_N2), scalar(SMALL));
     }
 
     // Fill mixMu [Pa·s] for every cell using the active NN.
@@ -139,6 +134,38 @@ struct NNMuInterface
                 Y[1][celli],   // O2
                 Y[2][celli]    // N2
             );
+        }
+    }
+
+    // Fill mixMu and increment errorCount for cells where the raw NN output
+    // was non-positive (i.e., physically invalid — clamped to SMALL).
+    void compute
+    (
+        volScalarField& mixMu,
+        const PtrList<volScalarField>& Y,
+        const volScalarField& T,
+        volScalarField& errorCount
+    ) const
+    {
+        forAll(T, celli)
+        {
+            const scalar rawMu = predictCellRaw
+            (
+                T[celli],
+                Y[0][celli],   // H2
+                Y[1][celli],   // O2
+                Y[2][celli]    // N2
+            );
+
+            if (rawMu < scalar(SMALL))
+            {
+                mixMu[celli] = scalar(SMALL);
+                errorCount[celli] += scalar(1);
+            }
+            else
+            {
+                mixMu[celli] = rawMu;
+            }
         }
     }
 };
