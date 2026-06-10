@@ -20,7 +20,7 @@ nSamples        2000;
 
 outputFile      "nn_check_results.csv";
 
-// Species list — must match the order in codeJeNN_mu.H (n_species_mu).
+// Species list — must match the order expected by nn_mu_interface.H (H2, O2, N2).
 species ( H2 O2 N2 );
 
 // Importance sampling — must match generateDataProperties in H2_O2_N2_mu_data

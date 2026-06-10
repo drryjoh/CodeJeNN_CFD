@@ -1,8 +1,8 @@
 /*---------------------------------------------------------------------------*\
   checkNNPrediction.C
 
-  Validates five CodeJeNN viscosity NNs (NN0, 1x4, 2x8, 3x12, terrible)
-  against the polynomial Wilke model.
+  Validates two CodeJeNN viscosity NNs (NNHI, NNLO) against the
+  polynomial Wilke model.
 
   Sampling matches generateData.C exactly:
     a) Uniform Dirichlet  (fraction: 1 - fracPhysical)
@@ -12,7 +12,7 @@
 
   For each state:
     1. Compute polynomial per-species Mu_i, apply Wilke rule → mu_wilke.
-    2. Call each NN model → mu_NN0 … mu_NNT.
+    2. Call each NN model → mu_NNHI, mu_NNLO.
     3. Relative error = |mu_wilke - mu_NNk| / mu_wilke.
     4. Write CSV + print summary statistics.
 
@@ -23,11 +23,8 @@
       checkNNPrediction
 \*---------------------------------------------------------------------------*/
 
-#include "codeJeNN_mu.H"       // NN0: predict_mu([T, Y_H2, Y_O2, Y_N2])
-#include "model_1x4.hpp"       // NN1: model_1x4([Y_O2, Y_N2, Y_H2, T])
-#include "model_2x8.hpp"       // NN2: model_2x8([Y_O2, Y_N2, Y_H2, T])
-#include "model_3x12.hpp"      // NN3: model_3x12([Y_O2, Y_N2, Y_H2, T])
-#include "model_terrible.hpp"  // NNT: model_terrible([Y_O2, Y_N2, Y_H2, T])
+#include "model_hi.hpp"   // NNHI: model_hi([Y_O2, Y_N2, Y_H2, T])
+#include "model_lo.hpp"   // NNLO: model_lo([Y_O2, Y_N2, Y_H2, T])
 
 #include "argList.H"
 #include "Time.H"
@@ -173,10 +170,10 @@ int main(int argc, char *argv[])
 
     std::ofstream out(outputFile);
 
-    out << "j,Y_H2,Y_O2,Y_N2,T,mu_wilke,mu_NN0,mu_NN1,mu_NN2,mu_NN3,mu_NNT,e0,e1,e2,e3,eT\n";
+    out << "j,Y_H2,Y_O2,Y_N2,T,mu_wilke,mu_NNHI,mu_NNLO,eHI,eLO\n";
 
-    scalar sumErr0 = 0, sumErr1 = 0, sumErr2 = 0, sumErr3 = 0, sumErrT = 0;
-    scalar maxErr0 = 0, maxErr1 = 0, maxErr2 = 0, maxErr3 = 0, maxErrT = 0;
+    scalar sumErrHI = 0, sumErrLO = 0;
+    scalar maxErrHI = 0, maxErrLO = 0;
 
     for (label j = 0; j < nSamples; ++j)
     {
@@ -223,54 +220,37 @@ int main(int argc, char *argv[])
         const scalar muWilke = wilkeMix(MuPoly, X, W);
 
         // -- NN predictions [Pa·s] ---------------------------------
-        //    NN0 input order: [T, Y_H2, Y_O2, Y_N2]  (predict_mu wrapper)
-        //    NN1/2/3/NNT input order: [Y_O2, Y_N2, Y_H2, T]
-        //    Species list order (generateDataProperties): H2=Y[0], O2=Y[1], N2=Y[2]
-        std::array<scalar, 4> nn0_input = { T,    Y[0], Y[1], Y[2] };
-        std::array<scalar, 4> nn_input  = { Y[1], Y[2], Y[0], T    };
+        // Species order in generateDataProperties: H2=Y[0], O2=Y[1], N2=Y[2]
+        // NN input order: [O2, N2, H2, T]
+        std::array<scalar, 4> nn_input = { Y[1], Y[2], Y[0], T };
 
-        const scalar muNN0 = std::max(scalar(predict_mu(nn0_input)), scalar(1e-30));
-        const scalar muNN1 = std::max(model_1x4(nn_input)[0],        scalar(1e-30));
-        const scalar muNN2 = std::max(model_2x8(nn_input)[0],        scalar(1e-30));
-        const scalar muNN3 = std::max(model_3x12(nn_input)[0],       scalar(1e-30));
-        const scalar muNNT = std::max(model_terrible(nn_input)[0],   scalar(1e-30));
+        const scalar muHI = std::max(model_hi(nn_input)[0], scalar(1e-30));
+        const scalar muLO = std::max(model_lo(nn_input)[0], scalar(1e-30));
 
         // -- Relative errors ---------------------------------------
-        const scalar e0 = std::abs(muWilke - muNN0) / muWilke;
-        const scalar e1 = std::abs(muWilke - muNN1) / muWilke;
-        const scalar e2 = std::abs(muWilke - muNN2) / muWilke;
-        const scalar e3 = std::abs(muWilke - muNN3) / muWilke;
-        const scalar eT = std::abs(muWilke - muNNT) / muWilke;
+        const scalar eHI = std::abs(muWilke - muHI) / muWilke;
+        const scalar eLO = std::abs(muWilke - muLO) / muWilke;
 
-        sumErr0 += e0;  maxErr0 = std::max(maxErr0, e0);
-        sumErr1 += e1;  maxErr1 = std::max(maxErr1, e1);
-        sumErr2 += e2;  maxErr2 = std::max(maxErr2, e2);
-        sumErr3 += e3;  maxErr3 = std::max(maxErr3, e3);
-        sumErrT += eT;  maxErrT = std::max(maxErrT, eT);
+        sumErrHI += eHI;  maxErrHI = std::max(maxErrHI, eHI);
+        sumErrLO += eLO;  maxErrLO = std::max(maxErrLO, eLO);
 
         // -- Write -------------------------------------------------
         out << j
             << "," << Y[0] << "," << Y[1] << "," << Y[2]
             << "," << T
             << "," << muWilke
-            << "," << muNN0 << "," << muNN1 << "," << muNN2 << "," << muNN3 << "," << muNNT
-            << "," << e0 << "," << e1 << "," << e2 << "," << e3 << "," << eT
+            << "," << muHI << "," << muLO
+            << "," << eHI  << "," << eLO
             << "\n";
     }
 
     out.close();
 
     Info << "Results written to '" << outputFile << "'" << nl
-         << "  NN0 (old)  | mean: " << sumErr0/nSamples*100 << " %"
-                      << "  max: " << maxErr0*100 << " %" << nl
-         << "  NN1 (1x4)  | mean: " << sumErr1/nSamples*100 << " %"
-                      << "  max: " << maxErr1*100 << " %" << nl
-         << "  NN2 (2x8)  | mean: " << sumErr2/nSamples*100 << " %"
-                      << "  max: " << maxErr2*100 << " %" << nl
-         << "  NN3 (3x12) | mean: " << sumErr3/nSamples*100 << " %"
-                      << "  max: " << maxErr3*100 << " %" << nl
-         << "  NNT (terr) | mean: " << sumErrT/nSamples*100 << " %"
-                      << "  max: " << maxErrT*100 << " %" << endl;
+         << "  NNHI | mean: " << sumErrHI/nSamples*100 << " %"
+                   << "  max: " << maxErrHI*100 << " %" << nl
+         << "  NNLO | mean: " << sumErrLO/nSamples*100 << " %"
+                   << "  max: " << maxErrLO*100 << " %" << endl;
 
     return 0;
 }

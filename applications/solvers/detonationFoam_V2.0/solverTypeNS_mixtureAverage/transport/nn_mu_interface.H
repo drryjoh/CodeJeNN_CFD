@@ -1,26 +1,27 @@
-#include "codeJeNN_mu.H"      // NN0 — also provides n_species_mu, species_name_mu_gen
-#include "model_1x4.hpp"      // NN1
-#include "model_2x8.hpp"      // NN2
-#include "model_3x12.hpp"     // NN3
-#include "model_terrible.hpp" // NNT
+#include "model_hi.hpp"
+#include "model_lo.hpp"
 
 // ============================================================
 // nn_mu_interface.H
 //
 // Interface between OpenFOAM and the CodeJeNN viscosity NNs.
-// Five models are selectable via muNNmodel in chemistryProperties:
+// Two models are selectable via muNNmodel in chemistryProperties:
 //
-//   NN0 — codeJeNN_mu.H     (1x4,  input [T, Y_H2, Y_O2, Y_N2])
-//   NN1 — model_1x4.hpp     (1x4,  input [Y_O2, Y_N2, Y_H2, T])
-//   NN2 — model_2x8.hpp     (2x8,  input [Y_O2, Y_N2, Y_H2, T])
-//   NN3 — model_3x12.hpp    (3x12, input [Y_O2, Y_N2, Y_H2, T])
-//   NNT — model_terrible.hpp(1x1,  input [Y_O2, Y_N2, Y_H2, T])
+//   NNHI — model_hi.hpp  (high-accuracy, deeper architecture)
+//   NNLO — model_lo.hpp  (low-cost, shallow architecture)
 //
-// NN1/2/3 input order matches train.py: df[['O2','N2','H2','T']].
-//
-// Species requirement: n_species_mu = 3, solver order H2=0, O2=1, N2=2.
-// The Wilke mixture rule is skipped in updateTransProperties when useMuNN.
+// Input order: [Y_O2, Y_N2, Y_H2, T]  (matches training: df[['O2','N2','H2','T']])
+// Solver species order: Y[0]=H2, Y[1]=O2, Y[2]=N2.
 // ============================================================
+
+// Species count and name table used by check_species_list.
+const int n_species_mu = 3;
+
+static std::string species_name_mu_gen(int index)
+{
+    constexpr std::array<const char*, 3> names = {"H2", "O2", "N2"};
+    return names[index];
+}
 
 struct NNMuInterface
 {
@@ -37,24 +38,13 @@ struct NNMuInterface
 
     static label nameToIdx(const word& name)
     {
-        if (name == "NN0") return 0;
-        if (name == "NN1") return 1;
-        if (name == "NN2") return 2;
-        if (name == "NN3") return 3;
-        if (name == "NNT") return 4;
+        if (name == "NNHI") return 0;
+        if (name == "NNLO") return 1;
         FatalErrorInFunction
             << "Unknown muNNmodel '" << name
-            << "'. Valid options: NN0, NN1, NN2, NN3, NNT."
+            << "'. Valid options: NNHI, NNLO."
             << exit(FatalError);
         return 0;
-    }
-
-    static Foam::stringList species_names()
-    {
-        Foam::stringList names(n_species_mu);
-        forAll(names, i)
-            names[i] = species_name_mu_gen(i);
-        return names;
     }
 
     void check_species_list(const PtrList<volScalarField>& Y) const
@@ -68,15 +58,14 @@ struct NNMuInterface
         }
 
         Info << "NNMuInterface: checking species order" << endl;
-        Foam::stringList names = species_names();
-        forAll(names, i)
+        for (int i = 0; i < n_species_mu; ++i)
         {
-            if (Y[i].name() != names[i])
+            if (Y[i].name() != species_name_mu_gen(i))
             {
                 FatalErrorInFunction
                     << "Species mismatch at index " << i
                     << ": solver has '" << Y[i].name()
-                    << "', Mu NN expects '" << names[i] << "'."
+                    << "', Mu NN expects '" << species_name_mu_gen(i) << "'."
                     << exit(FatalError);
             }
         }
@@ -93,14 +82,12 @@ struct NNMuInterface
         scalar Y_N2
     ) const
     {
-        std::array<scalar, 4> in;
+        // Input order: [O2, N2, H2, T]
+        std::array<scalar, 4> in = {Y_O2, Y_N2, Y_H2, T_c};
         switch (modelIdx_)
         {
-            case 0: in = {T_c, Y_H2, Y_O2, Y_N2}; return predict_mu(in);
-            case 1: in = {Y_O2, Y_N2, Y_H2, T_c}; return model_1x4(in)[0];
-            case 2: in = {Y_O2, Y_N2, Y_H2, T_c}; return model_2x8(in)[0];
-            case 3: in = {Y_O2, Y_N2, Y_H2, T_c}; return model_3x12(in)[0];
-            case 4: in = {Y_O2, Y_N2, Y_H2, T_c}; return model_terrible(in)[0];
+            case 0: return model_hi(in)[0];
+            case 1: return model_lo(in)[0];
             default: return scalar(0);
         }
     }
