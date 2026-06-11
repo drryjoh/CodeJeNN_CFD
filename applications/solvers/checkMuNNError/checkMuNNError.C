@@ -24,8 +24,8 @@
       checkMuNNError
 \*---------------------------------------------------------------------------*/
 
-#include "model_hi.hpp"   // NNHI: model_hi([Y_O2, Y_N2, Y_H2, T])
-#include "model_lo.hpp"   // NNLO: model_lo([Y_O2, Y_N2, Y_H2, T])
+#include "model_hi_NEW.hpp"   // NNHI: model_hi_NEW([Y_O2, Y_N2, Y_H2, T])
+#include "model_lo_NEW.hpp"   // NNLO: model_lo_NEW([Y_O2, Y_N2, Y_H2, T])
 
 #include "fvCFD.H"
 
@@ -125,8 +125,8 @@ int main(int argc, char *argv[])
         };
 
         const scalar muRef = mixMu[celli];
-        const scalar muHI  = std::max(model_hi(nn_in)[0], scalar(1e-30));
-        const scalar muLO  = std::max(model_lo(nn_in)[0], scalar(1e-30));
+        const scalar muHI  = std::max(model_hi_NEW(nn_in)[0], scalar(1e-30));
+        const scalar muLO  = std::max(model_lo_NEW(nn_in)[0], scalar(1e-30));
 
         const scalar eHI = std::abs(muRef - muHI) / muRef;
         const scalar eLO = std::abs(muRef - muLO) / muRef;

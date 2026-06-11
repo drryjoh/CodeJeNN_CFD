@@ -1,5 +1,5 @@
-#include "model_hi.hpp"
-#include "model_lo.hpp"
+#include "model_hi_NEW.hpp"
+#include "model_lo_NEW.hpp"
 
 // ============================================================
 // nn_mu_interface.H
@@ -7,7 +7,7 @@
 // Interface between OpenFOAM and the CodeJeNN viscosity NNs.
 // Two models are selectable via muNNmodel in chemistryProperties:
 //
-//   NNHI — model_hi.hpp  (high-accuracy, deeper architecture)
+//   NNHI — model_hi_NEW.hpp  (high-accuracy, deeper architecture)
 //   NNLO — model_lo.hpp  (low-cost, shallow architecture)
 //
 // Input order: [Y_O2, Y_N2, Y_H2, T]  (matches training: df[['O2','N2','H2','T']])
@@ -86,8 +86,8 @@ struct NNMuInterface
         std::array<scalar, 4> in = {Y_O2, Y_N2, Y_H2, T_c};
         switch (modelIdx_)
         {
-            case 0: return model_hi(in)[0];
-            case 1: return model_lo(in)[0];
+            case 0: return model_hi_NEW(in)[0];
+            case 1: return model_lo_NEW(in)[0];
             default: return scalar(0);
         }
     }

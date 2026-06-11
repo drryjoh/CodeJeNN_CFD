@@ -23,8 +23,8 @@
       checkNNPrediction
 \*---------------------------------------------------------------------------*/
 
-#include "model_hi.hpp"   // NNHI: model_hi([Y_O2, Y_N2, Y_H2, T])
-#include "model_lo.hpp"   // NNLO: model_lo([Y_O2, Y_N2, Y_H2, T])
+#include "model_hi_NEW.hpp"   // NNHI: model_hi_NEW([Y_O2, Y_N2, Y_H2, T])
+#include "model_lo_NEW.hpp"   // NNLO: model_lo_NEW([Y_O2, Y_N2, Y_H2, T])
 
 #include "argList.H"
 #include "Time.H"
@@ -224,8 +224,8 @@ int main(int argc, char *argv[])
         // NN input order: [O2, N2, H2, T]
         std::array<scalar, 4> nn_input = { Y[1], Y[2], Y[0], T };
 
-        const scalar muHI = std::max(model_hi(nn_input)[0], scalar(1e-30));
-        const scalar muLO = std::max(model_lo(nn_input)[0], scalar(1e-30));
+        const scalar muHI = std::max(model_hi_NEW(nn_input)[0], scalar(1e-30));
+        const scalar muLO = std::max(model_lo_NEW(nn_input)[0], scalar(1e-30));
 
         // -- Relative errors ---------------------------------------
         const scalar eHI = std::abs(muWilke - muHI) / muWilke;
