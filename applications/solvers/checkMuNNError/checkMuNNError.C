@@ -1,24 +1,24 @@
 /*---------------------------------------------------------------------------*\
   checkMuNNError.C
 
-  Post-processing utility for detonationFoam cases.
+  Post-processing utility for detonationFoam NS_mixtureAverage cases.
 
-  Reads T and species mass-fraction fields from the latest time directory,
-  computes cell-by-cell mixture viscosity from the Wilke rule (using the
-  log-polynomial coefficients in constant/speciesMu), then evaluates NNHI
-  and NNLO and writes the relative error for each model:
+  Reads the solver-computed mixMu field and species/temperature fields from
+  the latest time directory, evaluates NNHI and NNLO, and writes the
+  cell-by-cell relative error for each model:
 
-      mu_err_hi   |mu_wilke - mu_NNHI| / mu_wilke
-      mu_err_lo   |mu_wilke - mu_NNLO| / mu_wilke
+      mu_err_hi   |mixMu - mu_NNHI| / mixMu
+      mu_err_lo   |mixMu - mu_NNLO| / mixMu
 
-  Transport coefficients are read from:
-      constant/speciesMu    (Mu1-4 log-polynomial coefficients, same as solver)
+  Using mixMu directly (written by the solver via AUTO_WRITE) means the
+  reference is always the exact Wilke value the solver used, with no risk
+  of coefficient or unit mismatch.
 
-  Species field names expected in the time directory: H2, O2, N2
-  Species order assumed: Y[0]=H2, Y[1]=O2, Y[2]=N2  (matches nn_mu_interface.H)
+  Fields read from the latest time directory:
+      mixMu, H2, O2, N2, T
 
-  Molecular weights [g/mol] are hardcoded for H2/O2/N2:
-      H2  2.016    O2  31.998    N2  28.014
+  NN input order: [Y_O2, Y_N2, Y_H2, T]   (matches nn_mu_interface.H)
+  Species order:  Y[0]=H2, Y[1]=O2, Y[2]=N2
 
   Usage (run from the case directory):
       checkMuNNError
@@ -51,58 +51,31 @@ int main(int argc, char *argv[])
     #include "createMesh.H"
 
     // ----------------------------------------------------------------
-    // Read log-polynomial mu coefficients from constant/speciesMu
-    // Format: mu_i [Pa·s] = 0.1 * exp(Mu1 + ln(T)*(Mu2 + ln(T)*(Mu3 + ln(T)*Mu4)))
+    // Read fields from the latest time directory
     // ----------------------------------------------------------------
-    IOdictionary speciesMuDict
+    volScalarField mixMu
     (
-        IOobject
-        (
-            "speciesMu",
-            runTime.constant(),
-            mesh,
-            IOobject::MUST_READ,
-            IOobject::NO_WRITE
-        )
+        IOobject("mixMu", runTime.timeName(), mesh, IOobject::MUST_READ, IOobject::NO_WRITE),
+        mesh
     );
-
-    // Fixed species list: H2=0, O2=1, N2=2
-    const int nSp = 3;
-    const char* spNames[nSp] = {"H2", "O2", "N2"};
-    // Molecular weights [g/mol]
-    const scalar W[nSp] = { 2.016, 31.998, 28.014 };
-
-    scalar mu1[nSp], mu2[nSp], mu3[nSp], mu4[nSp];
-    for (int i = 0; i < nSp; ++i)
-    {
-        const dictionary& sd = speciesMuDict.subDict(spNames[i]);
-        mu1[i] = readScalar(sd.lookup("Mu1"));
-        mu2[i] = readScalar(sd.lookup("Mu2"));
-        mu3[i] = readScalar(sd.lookup("Mu3"));
-        mu4[i] = readScalar(sd.lookup("Mu4"));
-    }
-
-    // ----------------------------------------------------------------
-    // Read species and temperature fields from the latest time
-    // ----------------------------------------------------------------
     volScalarField Y_H2
     (
-        IOobject("H2", runTime.timeName(), mesh, IOobject::MUST_READ, IOobject::NO_WRITE),
+        IOobject("H2",    runTime.timeName(), mesh, IOobject::MUST_READ, IOobject::NO_WRITE),
         mesh
     );
     volScalarField Y_O2
     (
-        IOobject("O2", runTime.timeName(), mesh, IOobject::MUST_READ, IOobject::NO_WRITE),
+        IOobject("O2",    runTime.timeName(), mesh, IOobject::MUST_READ, IOobject::NO_WRITE),
         mesh
     );
     volScalarField Y_N2
     (
-        IOobject("N2", runTime.timeName(), mesh, IOobject::MUST_READ, IOobject::NO_WRITE),
+        IOobject("N2",    runTime.timeName(), mesh, IOobject::MUST_READ, IOobject::NO_WRITE),
         mesh
     );
     volScalarField T
     (
-        IOobject("T",  runTime.timeName(), mesh, IOobject::MUST_READ, IOobject::NO_WRITE),
+        IOobject("T",     runTime.timeName(), mesh, IOobject::MUST_READ, IOobject::NO_WRITE),
         mesh
     );
 
@@ -140,54 +113,23 @@ int main(int argc, char *argv[])
     // ----------------------------------------------------------------
     // Cell-by-cell computation
     // ----------------------------------------------------------------
-    static const scalar inv_sqrt8 = 1.0 / std::sqrt(8.0);
-
     scalar sumErrHI = 0, sumErrLO = 0;
     scalar maxErrHI = 0, maxErrLO = 0;
 
     forAll(T, celli)
     {
-        const scalar Tc  = T[celli];
-        const scalar lnT = std::log(Tc);
-
-        const scalar Yc[nSp] = { Y_H2[celli], Y_O2[celli], Y_N2[celli] };
-
-        // Per-species viscosity [Pa·s]
-        scalar Mu[nSp];
-        for (int i = 0; i < nSp; ++i)
-            Mu[i] = 0.1 * std::exp(mu1[i] + lnT*(mu2[i] + lnT*(mu3[i] + lnT*mu4[i])));
-
-        // Mole fractions
-        scalar invWmix = 0;
-        for (int i = 0; i < nSp; ++i) invWmix += Yc[i] / W[i];
-        const scalar Wmix = 1.0 / invWmix;
-
-        scalar X[nSp];
-        for (int i = 0; i < nSp; ++i) X[i] = Yc[i] * Wmix / W[i];
-
-        // Wilke mixture rule
-        scalar muWilke = 0;
-        for (int i = 0; i < nSp; ++i)
+        // NN input order: [O2, N2, H2, T]
+        std::array<scalar, 4> nn_in =
         {
-            scalar denom = 0;
-            for (int z = 0; z < nSp; ++z)
-            {
-                denom += X[z] * inv_sqrt8
-                       * std::pow(1.0 + std::sqrt(Mu[i]/Mu[z])
-                                      * std::pow(W[z]/W[i], 0.25), 2.0)
-                       / std::sqrt(1.0 + W[i]/W[z]);
-            }
-            muWilke += X[i] * Mu[i] / denom;
-        }
+            Y_O2[celli], Y_N2[celli], Y_H2[celli], T[celli]
+        };
 
-        // NN predictions — input order: [O2, N2, H2, T]
-        std::array<scalar, 4> nn_in = { Y_O2[celli], Y_N2[celli], Y_H2[celli], Tc };
+        const scalar muRef = mixMu[celli];
+        const scalar muHI  = std::max(model_hi(nn_in)[0], scalar(1e-30));
+        const scalar muLO  = std::max(model_lo(nn_in)[0], scalar(1e-30));
 
-        const scalar muHI = std::max(model_hi(nn_in)[0], scalar(1e-30));
-        const scalar muLO = std::max(model_lo(nn_in)[0], scalar(1e-30));
-
-        const scalar eHI = std::abs(muWilke - muHI) / muWilke;
-        const scalar eLO = std::abs(muWilke - muLO) / muWilke;
+        const scalar eHI = std::abs(muRef - muHI) / muRef;
+        const scalar eLO = std::abs(muRef - muLO) / muRef;
 
         mu_err_hi[celli] = eHI;
         mu_err_lo[celli] = eLO;
